@@ -1,16 +1,46 @@
 <div id="configurator-app">
+    <!-- Raw preloaded product JSON -->
     <div id="json-data" style="display:none;">{$products_json|escape:'html':'UTF-8'}</div>
 
+    <!-- Main Configurator Layout -->
     <div class="config-layout">
-        
-        <div class="config-sidebar">
-            <h3>FILTRY</h3>
-            
+
+        <!-- Left Sidebar: Filters -->
+        <div class="config-sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="material-icons">filter_list</i> FILTRY</h3>
+                <button class="close-sidebar-btn" id="close-sidebar">&times;</button>
+            </div>
+
+            <!-- Search Filter -->
+            <div class="filter-group">
+                <label for="search-input">Szukaj produktu:</label>
+                <div class="search-wrapper">
+                    <input type="text" id="search-input" placeholder="Wpisz nazwę...">
+                    <i class="material-icons search-icon">search</i>
+                </div>
+            </div>
+
+            <!-- Price Filter -->
+            <div class="filter-group">
+                <label>Cena (PLN):</label>
+                <div class="input-range-wrapper">
+                    <input type="number" class="manual-input" id="val-p-min" value="0" min="0" step="0.01">
+                    <span>-</span>
+                    <input type="number" class="manual-input" id="val-p-max" value="0" min="0" step="0.01">
+                </div>
+                <div class="dual-slider">
+                    <input type="range" id="min-p" value="0" step="0.01">
+                    <input type="range" id="max-p" value="0" step="0.01">
+                </div>
+            </div>
+
+            <!-- Width Filter -->
             <div class="filter-group">
                 <label>Szerokość (mm):</label>
                 <div class="input-range-wrapper">
-                    <input type="number" class="manual-input" id="val-w-min" value="0" min="0"> 
-                    <span>-</span> 
+                    <input type="number" class="manual-input" id="val-w-min" value="0" min="0">
+                    <span>-</span>
                     <input type="number" class="manual-input" id="val-w-max" value="0" min="0">
                 </div>
                 <div class="dual-slider">
@@ -18,12 +48,13 @@
                     <input type="range" id="max-w" value="0">
                 </div>
             </div>
-            
+
+            <!-- Height Filter -->
             <div class="filter-group">
                 <label>Wysokość (mm):</label>
                 <div class="input-range-wrapper">
-                    <input type="number" class="manual-input" id="val-h-min" value="0" min="0"> 
-                    <span>-</span> 
+                    <input type="number" class="manual-input" id="val-h-min" value="0" min="0">
+                    <span>-</span>
                     <input type="number" class="manual-input" id="val-h-max" value="0" min="0">
                 </div>
                 <div class="dual-slider">
@@ -31,110 +62,165 @@
                     <input type="range" id="max-h" value="0">
                 </div>
             </div>
-            
+
+            <!-- Material Filter -->
             <div class="filter-group">
                 <label>Materiał:</label>
-                <div id="material-filters" class="material-buttons">
-                    <button class="mat-btn active" data-mat="all">Wszystkie</button>
+                <div id="material-filter-list" class="checkbox-filter-list">
+                    <!-- Loaded dynamically via JS -->
                 </div>
             </div>
+
+            <!-- Shape Filter -->
+            <div class="filter-group">
+                <label>Kształt:</label>
+                <div id="shape-filter-list" class="checkbox-filter-list">
+                    <!-- Loaded dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Labels per Sheet Filter -->
+            <div class="filter-group">
+                <label>Etykiet na arkuszu:</label>
+                <div id="labels-filter-list" class="checkbox-filter-list">
+                    <!-- Loaded dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Reset Filters -->
+            <button class="btn-reset" id="btn-reset-all">Wyczyść filtry</button>
         </div>
 
+        <!-- Main Content Area: Products List -->
         <div class="config-main">
-            <h3 class="results-header">Znalezione etykiety: <span id="product-count" class="badge">0</span></h3>
+            <div class="results-toolbar">
+                <button class="toggle-sidebar-btn" id="toggle-sidebar">
+                    <i class="material-icons">filter_list</i> Filtry
+                </button>
+                <h3 class="results-header">
+                    Znalezione etykiety: <span id="product-count" class="badge">0</span>
+                </h3>
+            </div>
+
             <div id="product-list" class="product-grid">
-                </div>
+                <!-- Loaded dynamically via JS -->
+            </div>
+
+            <div id="no-results" class="no-results-msg" style="display: none;">
+                <i class="material-icons">info_outline</i>
+                <p>Brak produktów spełniających wybrane kryteria.</p>
+            </div>
         </div>
 
     </div>
 </div>
 
-{literal}
-<script>
-function applyFilters() {
-    const minW = document.getElementById('min-w').value;
-    const maxW = document.getElementById('max-w').value;
-    const mat = document.querySelector('.mat-btn.active').getAttribute('data-mat');
-
-    // Pokazujemy loader (opcjonalnie)
-    document.querySelector('#js-product-list').style.opacity = '0.5';
-
-    fetch('/index.php?fc=module&module=labelconfigurator&controller=ajax&minW='+minW+'&maxW='+maxW+'&mat='+mat)
-        .then(response => response.text())
-        .then(html => {
-            // Podmiana zawartości głównej listy produktów
-            document.querySelector('#js-product-list').innerHTML = html;
-            document.querySelector('#js-product-list').style.opacity = '1';
-        });
-}
-</script>
-{/literal}
+<!-- Load Google Material Icons if not loaded -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
 <style>
-    #configurator-app { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; color: #333; }
-    .config-layout { display: flex; gap: 20px; align-items: flex-start; }
-    
-    .config-sidebar { flex: 0 0 300px; background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; }
-    .filter-group { margin-bottom: 25px; }
-    .filter-group label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
-    
-    .input-range-wrapper { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-    .manual-input { width: 65px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-size: 14px; font-weight: bold; color: #2c7da0; }
-    .manual-input:focus { outline: none; border-color: #2c7da0; box-shadow: 0 0 4px rgba(44, 125, 160, 0.3); }
+    #configurator-app { font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 1200px; margin: 20px auto; padding: 0 15px; color: #333; box-sizing: border-box; }
+
+    .config-layout { display: flex; gap: 30px; align-items: flex-start; position: relative; }
+
+    /* Left Sidebar */
+    .config-sidebar { flex: 0 0 300px; background: #ffffff; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .sidebar-header h3 { margin: 0; font-size: 18px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+    .close-sidebar-btn { display: none; background: none; border: none; font-size: 28px; color: #64748b; cursor: pointer; }
+
+    .filter-group { margin-bottom: 25px; border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; }
+    .filter-group:last-of-type { border-bottom: none; }
+    .filter-group label { display: block; font-weight: 600; margin-bottom: 10px; font-size: 14px; color: #334155; }
+
+    /* Search Bar */
+    .search-wrapper { position: relative; }
+    #search-input { width: 100%; padding: 10px 35px 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; color: #1e293b; box-sizing: border-box; transition: border-color 0.2s; }
+    #search-input:focus { outline: none; border-color: #2c7da0; }
+    .search-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 20px; }
+
+    /* Input Range & Sliders */
+    .input-range-wrapper { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+    .manual-input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; font-size: 13px; font-weight: bold; color: #1e293b; box-sizing: border-box; }
+    .manual-input:focus { outline: none; border-color: #2c7da0; box-shadow: 0 0 0 3px rgba(44, 125, 160, 0.15); }
     .manual-input::-webkit-outer-spin-button, .manual-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .manual-input[type=number] { -moz-appearance: textfield; }
 
-    .dual-slider { position: relative; height: 30px; }
-    .dual-slider input[type="range"] { position: absolute; width: 100%; top: 0; left: 0; -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; }
-    .dual-slider::before { content: ''; position: absolute; top: 12px; left: 0; right: 0; height: 6px; background: #ddd; border-radius: 3px; z-index: 1; }
-    .dual-slider input[type="range"]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 20px; height: 20px; background: #2c7da0; border-radius: 50%; cursor: pointer; position: relative; z-index: 2; margin-top: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-    .dual-slider input[type="range"]::-moz-range-thumb { pointer-events: auto; width: 20px; height: 20px; background: #2c7da0; border-radius: 50%; cursor: pointer; position: relative; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: none; }
+    .dual-slider { position: relative; height: 16px; margin: 10px 0 15px; }
+    .dual-slider input[type="range"] { position: absolute; width: 100%; top: -4px; left: 0; -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; margin: 0; }
+    .dual-slider::before { content: ''; position: absolute; top: 4px; left: 0; right: 0; height: 6px; background: #e2e8f0; border-radius: 3px; z-index: 1; }
+    .dual-slider input[type="range"]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 18px; height: 18px; background: #2c7da0; border-radius: 50%; cursor: pointer; position: relative; z-index: 2; margin-top: -6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 2px solid #fff; transition: background 0.15s; }
+    .dual-slider input[type="range"]::-webkit-slider-thumb:hover { background: #1f5d78; }
+    .dual-slider input[type="range"]::-moz-range-thumb { pointer-events: auto; width: 14px; height: 14px; background: #2c7da0; border-radius: 50%; cursor: pointer; position: relative; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 2px solid #fff; transition: background 0.15s; }
+    .dual-slider input[type="range"]::-moz-range-thumb:hover { background: #1f5d78; }
 
-    .material-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
-    .mat-btn { padding: 8px 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; border-radius: 4px; transition: 0.2s; font-size: 13px; }
-    .mat-btn:hover { background: #f0f0f0; }
-    .mat-btn.active { background: #2c7da0; color: #fff; border-color: #2c7da0; font-weight: bold; }
+    /* Checkbox list filters */
+    .checkbox-filter-list { max-height: 150px; overflow-y: auto; padding-right: 5px; }
+    .checkbox-filter-list::-webkit-scrollbar { width: 5px; }
+    .checkbox-filter-list::-webkit-scrollbar-track { background: #f1f5f9; }
+    .checkbox-filter-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: #475569; cursor: pointer; user-select: none; }
+    .filter-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2c7da0; cursor: pointer; margin: 0; }
 
+    /* Reset button */
+    .btn-reset { width: 100%; padding: 12px; background: #f1f5f9; border: none; border-radius: 6px; color: #475569; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .btn-reset:hover { background: #e2e8f0; color: #1e293b; }
+
+    /* Main Area */
     .config-main { flex: 1; }
-    .results-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
-    .badge { background: #2c7da0; color: white; padding: 4px 10px; border-radius: 20px; font-size: 14px; }
-    
-    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
-    
-    /* Wygląd kafelka zmieniony pod przycisk CTA */
-    .product-card { 
+    .results-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .results-header { margin: 0; font-size: 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; }
+    .badge { background: #2c7da0; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 600; }
+
+    .toggle-sidebar-btn { display: none; background: #2c7da0; border: none; padding: 10px 16px; border-radius: 6px; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; display: none; align-items: center; gap: 6px; }
+    .toggle-sidebar-btn:hover { background: #1f5d78; }
+
+    /* Product Grid */
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; }
+
+    /* Product Card */
+    .product-card {
         display: flex; flex-direction: column; justify-content: space-between;
-        background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; 
-        padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s;
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+        box-sizing: border-box; overflow: hidden;
     }
-    .product-card:hover { border-color: #61b3d6; box-shadow: 0 6px 15px rgba(0,0,0,0.1); transform: translateY(-3px); }
-    .card-title { font-weight: bold; font-size: 16px; color: #333; margin-bottom: 15px; line-height: 1.4; }
-    .card-details { margin-bottom: 20px; flex-grow: 1; }
-    .card-details p { margin: 6px 0; font-size: 13px; color: #555; }
-    
-    /* Przycisk CTA */
+    .product-card:hover { border-color: #61b3d6; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); transform: translateY(-3px); }
+
+    .card-img-wrapper { height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; border-radius: 8px; overflow: hidden; background: #f8fafc; }
+    .card-img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.3s; }
+    .product-card:hover .card-img { transform: scale(1.05); }
+
+    .card-title { font-weight: 700; font-size: 15px; color: #1e293b; margin: 0 0 10px; line-height: 1.4; height: 42px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+    .card-price { font-size: 18px; font-weight: 800; color: #2c7da0; margin-bottom: 12px; }
+
+    .card-details { margin-bottom: 18px; border-top: 1px solid #f1f5f9; padding-top: 12px; }
+    .card-details p { margin: 6px 0; font-size: 12px; color: #64748b; display: flex; justify-content: space-between; }
+    .card-details p span { font-weight: 600; color: #334155; }
+
+    /* CTA Button */
     .card-btn {
-        display: block; width: 100%; text-align: center; padding: 10px; 
-        background: #2c7da0; color: #fff; text-decoration: none; border-radius: 4px;
-        font-weight: bold; transition: background 0.2s; box-sizing: border-box;
+        display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px;
+        background: #2c7da0; color: #fff; text-decoration: none; border-radius: 6px;
+        font-weight: 700; font-size: 14px; transition: background 0.2s; box-sizing: border-box; border: none; cursor: pointer;
     }
     .card-btn:hover { background: #1f5d78; color: #fff; text-decoration: none; }
-    
-    @media (max-width: 768px) {
-        .config-layout { flex-direction: column; }
-        .config-sidebar { width: 100%; flex: auto; box-sizing: border-box; }
+    .card-btn i { font-size: 18px; }
+
+    /* No results message */
+    .no-results-msg { padding: 40px 20px; text-align: center; color: #64748b; background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1; margin-top: 20px; }
+    .no-results-msg i { font-size: 48px; color: #94a3b8; margin-bottom: 10px; }
+    .no-results-msg p { font-size: 16px; font-weight: 500; margin: 0; }
+
+    /* Responsiveness */
+    @media (max-width: 991px) {
+        .toggle-sidebar-btn { display: flex; }
+        .config-sidebar {
+            position: fixed; top: 0; left: -340px; width: 300px; height: 100%;
+            z-index: 9999; overflow-y: auto; transition: left 0.3s ease; box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+        }
+        .config-sidebar.open { left: 0; }
+        .close-sidebar-btn { display: block; }
     }
-	
-    /* Układ dla lewej kolumny (wąski) */
-    #configurator-app { width: 100%; font-family: Arial, sans-serif; }
-    .config-layout { display: flex; flex-direction: column; gap: 15px; } /* Zmieniamy na kolumnę */
-    
-    .config-sidebar { width: 100%; background: #f8f9fa; padding: 15px; border-radius: 8px; box-sizing: border-box; }
-    
-    /* Inputy muszą być mniejsze, żeby weszły w kolumnę */
-    .input-range-wrapper { flex-direction: column; align-items: flex-start; }
-    .manual-input { width: 100%; box-sizing: border-box; margin-top: 5px; }
-    
-    .config-main { width: 100%; }
-    .product-grid { grid-template-columns: 1fr; } /* Jedna kolumna produktów w głównym obszarze */
 </style>
