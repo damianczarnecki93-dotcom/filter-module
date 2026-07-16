@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Element references
     const dynamicFiltersContainer = document.getElementById('dynamic-filters-container');
     const productListContainer = document.getElementById('product-list');
     const productCountBadge = document.getElementById('product-count');
@@ -44,17 +43,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (match) {
             return { w: parseFloat(match[1]), h: parseFloat(match[2]) };
         }
-        // Fallback if it's just a single number
         const single = parseNumber(val);
         return { w: single, h: single };
     }
 
-    // Helper: Build dynamic filters based on configuration
+    // Color swatches dictionary mapping Polish/English names to hex colors
+    const colorMap = {
+        'czarny': '#111827', 'czarna': '#111827', 'black': '#111827',
+        'biały': '#ffffff', 'biała': '#ffffff', 'white': '#ffffff',
+        'szary': '#6b7280', 'szara': '#6b7280', 'gray': '#6b7280', 'grey': '#6b7280',
+        'czerwony': '#dc2626', 'czerwona': '#dc2626', 'red': '#dc2626',
+        'niebieski': '#2563eb', 'niebieska': '#2563eb', 'blue': '#2563eb',
+        'zielony': '#16a34a', 'zielona': '#16a34a', 'green': '#16a34a',
+        'żółty': '#facc15', 'żółta': '#facc15', 'yellow': '#facc15',
+        'pomarańczowy': '#ea580c', 'pomarańczowa': '#ea580c', 'orange': '#ea580c',
+        'różowy': '#db2777', 'różowa': '#db2777', 'pink': '#db2777',
+        'brązowy': '#78350f', 'brązowa': '#78350f', 'brown': '#78350f',
+        'złoty': '#ca8a04', 'gold': '#ca8a04',
+        'srebrny': '#cbd5e1', 'silver': '#cbd5e1',
+        'przezroczysty': 'rgba(255, 255, 255, 0.2)', 'transparent': 'rgba(255, 255, 255, 0.2)'
+    };
+
+    function getSwatchColor(name) {
+        if (!name) return '#e2e8f0';
+        const cleanName = name.toLowerCase().trim();
+        if (colorMap[cleanName]) return colorMap[cleanName];
+
+        // Simple hash fallback for unmapped colors so they have beautiful swatches
+        let hash = 0;
+        for (let i = 0; i < cleanName.length; i++) {
+            hash = cleanName.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        let color = '#';
+        for (let i = 0; i < 3; i++) {
+            const value = (hash >> (i * 8)) & 0xFF;
+            color += ('00' + value.toString(16)).substr(-2);
+        }
+        return color;
+    }
+
+    // Helper: Build dynamic filters based on active backoffice configurations
     function buildDynamicFilters() {
         dynamicFiltersContainer.innerHTML = '';
         filterStates = {};
 
-        // Only process active configs
         const activeFilters = filtersConfig.filter(f => f.active);
 
         activeFilters.forEach(filter => {
@@ -65,8 +97,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const groupDiv = document.createElement('div');
             groupDiv.className = 'filter-group';
 
+            // Create Accordion Header
+            const header = document.createElement('div');
+            header.className = 'filter-header';
+            header.innerHTML = `
+                <label>${label}</label>
+                <i class="material-icons chevron">expand_more</i>
+            `;
+            groupDiv.appendChild(header);
+
+            // Create Accordion Body Container
+            const body = document.createElement('div');
+            body.className = 'filter-body';
+            groupDiv.appendChild(body);
+
+            // Register toggle event on header click
+            header.addEventListener('click', () => {
+                header.classList.toggle('collapsed');
+            });
+
             if (fid === 'price') {
-                // Special Price Filter
+                // Price range slider
                 const prices = products.map(p => p.price || 0);
                 const min = prices.length ? Math.min(...prices) : 0;
                 const max = prices.length ? Math.max(...prices) : 0;
@@ -79,8 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentMax: max
                 };
 
-                groupDiv.innerHTML = `
-                    <label>${label}:</label>
+                body.innerHTML = `
                     <div class="input-range-wrapper">
                         <input type="number" class="manual-input" id="val-price-min" value="${min.toFixed(2)}" min="${min}" step="0.01">
                         <span>-</span>
@@ -91,11 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="range" id="max-price" value="${max}" min="${min}" max="${max}" step="0.01">
                     </div>
                 `;
-                dynamicFiltersContainer.appendChild(groupDiv);
                 setupSliderEvents('price', filterStates[fid], true);
 
             } else if (type === 'slider') {
-                // Numeric slider for a feature
+                // General numeric single slider
                 const values = products.map(p => {
                     const featVal = p.features && p.features['f_' + fid];
                     return parseNumber(featVal);
@@ -113,8 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     featureId: fid
                 };
 
-                groupDiv.innerHTML = `
-                    <label>${label}:</label>
+                body.innerHTML = `
                     <div class="input-range-wrapper">
                         <input type="number" class="manual-input" id="val-${fid}-min" value="${min}" min="${min}" step="1">
                         <span>-</span>
@@ -125,11 +173,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="range" id="max-${fid}" value="${max}" min="${min}" max="${max}" step="1">
                     </div>
                 `;
-                dynamicFiltersContainer.appendChild(groupDiv);
                 setupSliderEvents(fid, filterStates[fid], false);
 
             } else if (type === 'size_split') {
-                // Width & Height dual slider split for a feature
+                // Width & Height double dual range slider split
                 const widths = [];
                 const heights = [];
 
@@ -160,9 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     featureId: fid
                 };
 
-                groupDiv.innerHTML = `
-                    <div class="filter-subgroup" style="margin-bottom: 20px;">
-                        <label>${label} - Szerokość (mm):</label>
+                body.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <span style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:8px;">Szerokość (mm):</span>
                         <div class="input-range-wrapper">
                             <input type="number" class="manual-input" id="val-${fid}-w-min" value="${minW}" min="${minW}">
                             <span>-</span>
@@ -173,8 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <input type="range" id="max-${fid}-w" value="${maxW}" min="${minW}" max="${maxW}">
                         </div>
                     </div>
-                    <div class="filter-subgroup">
-                        <label>${label} - Wysokość (mm):</label>
+                    <div>
+                        <span style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:8px;">Wysokość (mm):</span>
                         <div class="input-range-wrapper">
                             <input type="number" class="manual-input" id="val-${fid}-h-min" value="${minH}" min="${minH}">
                             <span>-</span>
@@ -186,11 +233,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
-                dynamicFiltersContainer.appendChild(groupDiv);
                 setupSizeSplitEvents(fid, filterStates[fid]);
 
             } else if (type === 'checkboxes') {
-                // Multi-select list of checkboxes
+                // Multi-select option pills or circular color swatches
                 const uniqueValues = [...new Set(products.map(p => {
                     return p.features && p.features['f_' + fid];
                 }).filter(Boolean))].sort();
@@ -198,29 +244,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterStates[fid] = {
                     type: 'checkboxes',
                     selected: [],
+                    allOptions: uniqueValues,
                     featureId: fid
                 };
 
-                const checkboxesHtml = uniqueValues.map(val => `
-                    <label class="filter-item">
-                        <input type="checkbox" name="cb-${fid}" value="${val}">
-                        ${val}
-                    </label>
-                `).join('');
+                // Detect if it is a color swatch filter
+                const isColor = /kolor|color|barwa/i.test(label);
 
-                groupDiv.innerHTML = `
-                    <label>${label}:</label>
-                    <div class="checkbox-filter-list" id="cb-container-${fid}">
-                        ${uniqueValues.length ? checkboxesHtml : '<div style="font-size:12px;color:#94a3b8;padding: 5px 0;">Brak opcji</div>'}
-                    </div>
-                `;
-                dynamicFiltersContainer.appendChild(groupDiv);
-                setupCheckboxEvents(fid, filterStates[fid]);
+                if (isColor) {
+                    // Render beautiful circular color swatch grid
+                    const swatchesHtml = uniqueValues.map(val => {
+                        const hex = getSwatchColor(val);
+                        const lightBorder = hex.toLowerCase() === '#ffffff' ? 'border: 1px solid #cbd5e1;' : '';
+                        return `
+                            <div class="swatch-item" data-val="${val}" style="background-color: ${hex}; ${lightBorder}" title="${val}"></div>
+                        `;
+                    }).join('');
+
+                    body.innerHTML = `<div class="swatch-grid" id="grid-${fid}">${swatchesHtml}</div>`;
+                    setupSwatchEvents(fid, filterStates[fid]);
+
+                } else {
+                    // Render beautiful rectangular pills with dynamic option parentheses counts
+                    const inCategorySearchId = `search-cat-${fid}`;
+                    const itemsContainerId = `list-${fid}`;
+
+                    body.innerHTML = `
+                        <div class="in-category-search">
+                            <i class="material-icons">search</i>
+                            <input type="text" id="${inCategorySearchId}" placeholder="Wyszukaj wartości...">
+                        </div>
+                        <div class="pill-filter-list" id="${itemsContainerId}">
+                            <!-- Populated dynamically to support reactive live counts update -->
+                        </div>
+                    `;
+
+                    setupPillsEvents(fid, filterStates[fid], inCategorySearchId, itemsContainerId);
+                }
             }
+
+            dynamicFiltersContainer.appendChild(groupDiv);
         });
     }
 
-    // Bind slider events
+    // Helper: setup dual range slider listeners
     function setupSliderEvents(id, state, isDecimal) {
         const minRange = document.getElementById(`min-${id}`);
         const maxRange = document.getElementById(`max-${id}`);
@@ -272,9 +339,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Bind size_split events
+    // Helper: setup double range slider split (width x height)
     function setupSizeSplitEvents(id, state) {
-        // Width Controls
+        // Width
         const minWRange = document.getElementById(`min-${id}-w`);
         const maxWRange = document.getElementById(`max-${id}-w`);
         const minWValInput = document.getElementById(`val-${id}-w-min`);
@@ -322,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyFilters();
         });
 
-        // Height Controls
+        // Height
         const minHRange = document.getElementById(`min-${id}-h`);
         const maxHRange = document.getElementById(`max-${id}-h`);
         const minHValInput = document.getElementById(`val-${id}-h-min`);
@@ -371,43 +438,154 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Bind checkboxes events
-    function setupCheckboxEvents(id, state) {
-        const container = document.getElementById(`cb-container-${id}`);
-        if (!container) return;
+    // Helper: setup circular color swatch events
+    function setupSwatchEvents(id, state) {
+        const grid = document.getElementById(`grid-${id}`);
+        if (!grid) return;
 
-        const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(cb => {
-            cb.addEventListener('change', () => {
-                if (cb.checked) {
-                    state.selected.push(cb.value);
-                } else {
-                    const idx = state.selected.indexOf(cb.value);
-                    if (idx > -1) state.selected.splice(idx, 1);
-                }
-                applyFilters();
-            });
+        grid.addEventListener('click', (e) => {
+            const item = e.target.closest('.swatch-item');
+            if (!item) return;
+
+            const val = item.getAttribute('data-val');
+            item.classList.toggle('active');
+
+            if (item.classList.contains('active')) {
+                state.selected.push(val);
+            } else {
+                const idx = state.selected.indexOf(val);
+                if (idx > -1) state.selected.splice(idx, 1);
+            }
+            applyFilters();
         });
     }
 
-    // Apply active filter logic
+    // Helper: setup rectangular button pills events with internal search filter
+    function setupPillsEvents(id, state, searchInputId, containerId) {
+        const searchInput = document.getElementById(searchInputId);
+        const container = document.getElementById(containerId);
+
+        // Track local search term for list filtration
+        state.searchTerm = '';
+
+        searchInput.addEventListener('input', () => {
+            state.searchTerm = searchInput.value.toLowerCase().trim();
+            updatePillsRender(id, state, container);
+        });
+
+        // Trigger initial rendering of pills list
+        updatePillsRender(id, state, container);
+    }
+
+    // Renders pills with dynamic option parentheses counts
+    function updatePillsRender(id, state, container) {
+        container.innerHTML = '';
+
+        // Filter options by local search keyword
+        const visibleOptions = state.allOptions.filter(opt => {
+            return opt.toLowerCase().includes(state.searchTerm);
+        });
+
+        if (visibleOptions.length === 0) {
+            container.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:10px 0;">Brak pasujących opcji</div>';
+            return;
+        }
+
+        visibleOptions.forEach(opt => {
+            const pill = document.createElement('div');
+            pill.className = 'pill-item';
+            if (state.selected.includes(opt)) {
+                pill.classList.add('active');
+            }
+
+            // Multi-facet counting: count matching products if we force this option on this field
+            const count = countProductsForOption(id, opt);
+
+            pill.innerHTML = `${opt} <span style="font-weight:400;margin-left:4px;opacity:0.75;">(${count})</span>`;
+
+            pill.addEventListener('click', () => {
+                pill.classList.toggle('active');
+                if (pill.classList.contains('active')) {
+                    state.selected.push(opt);
+                } else {
+                    const idx = state.selected.indexOf(opt);
+                    if (idx > -1) state.selected.splice(idx, 1);
+                }
+                applyFilters();
+                // Update counts reactively on all other pills lists
+                updateAllCheckboxesPills();
+            });
+
+            container.appendChild(pill);
+        });
+    }
+
+    // Helper: update all pills render lists reactively to refresh parentheses counts
+    function updateAllCheckboxesPills() {
+        for (const [fid, state] of Object.entries(filterStates)) {
+            if (state.type === 'checkboxes') {
+                const label = filtersConfig.find(f => f.id == fid || f.id === fid)?.label || '';
+                const isColor = /kolor|color|barwa/i.test(label);
+                if (!isColor) {
+                    const container = document.getElementById(`list-${fid}`);
+                    if (container) {
+                        updatePillsRender(fid, state, container);
+                    }
+                }
+            }
+        }
+    }
+
+    // Multi-facet dynamic product counter helper
+    function countProductsForOption(targetFid, optValue) {
+        return products.filter(p => {
+            for (const [fid, state] of Object.entries(filterStates)) {
+                // If it is the filter we are counting options for, we check if product features match 'optValue'
+                if (fid == targetFid) {
+                    const featVal = p.features && p.features['f_' + fid];
+                    if (featVal !== optValue) {
+                        return false;
+                    }
+                } else {
+                    // Otherwise, check regular active states of other filters
+                    if (fid === 'price') {
+                        if (p.price < state.currentMin || p.price > state.currentMax) return false;
+                    } else if (state.type === 'slider') {
+                        const featVal = p.features && p.features['f_' + fid];
+                        const num = parseNumber(featVal);
+                        if (num < state.currentMin || num > state.currentMax) return false;
+                    } else if (state.type === 'size_split') {
+                        const featVal = p.features && p.features['f_' + fid];
+                        const size = parseSizeSplit(featVal);
+                        if (size.w < state.currentMinW || size.w > state.currentMaxW ||
+                            size.h < state.currentMinH || size.h > state.currentMaxH) return false;
+                    } else if (state.type === 'checkboxes') {
+                        if (state.selected.length > 0) {
+                            const featVal = p.features && p.features['f_' + fid];
+                            if (!featVal || !state.selected.includes(featVal)) return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }).length;
+    }
+
+    // Apply active filter logic and render product grid
     function applyFilters() {
         const filtered = products.filter(p => {
             for (const [fid, state] of Object.entries(filterStates)) {
                 if (fid === 'price') {
-                    // Check price boundaries
                     if (p.price < state.currentMin || p.price > state.currentMax) {
                         return false;
                     }
                 } else if (state.type === 'slider') {
-                    // Check simple numeric slider boundaries
                     const featVal = p.features && p.features['f_' + fid];
                     const num = parseNumber(featVal);
                     if (num < state.currentMin || num > state.currentMax) {
                         return false;
                     }
                 } else if (state.type === 'size_split') {
-                    // Check Width and Height boundaries
                     const featVal = p.features && p.features['f_' + fid];
                     const size = parseSizeSplit(featVal);
                     if (size.w < state.currentMinW || size.w > state.currentMaxW ||
@@ -415,7 +593,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         return false;
                     }
                 } else if (state.type === 'checkboxes') {
-                    // Check multi-select checkbox constraints
                     if (state.selected.length > 0) {
                         const featVal = p.features && p.features['f_' + fid];
                         if (!featVal || !state.selected.includes(featVal)) {
