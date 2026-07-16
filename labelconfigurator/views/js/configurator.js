@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Dynamic state trackers
     let filterStates = {};
+    let isCategoryLiveFilter = false;
+    let mappedThemeCards = [];
 
     // Helper: parse numbers from string
     function parseNumber(val) {
@@ -47,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return { w: single, h: single };
     }
 
-    // Color swatches dictionary mapping Polish/English names to hex colors
+    // Colors swatches dictionary
     const colorMap = {
         'czarny': '#111827', 'czarna': '#111827', 'black': '#111827',
         'biały': '#ffffff', 'biała': '#ffffff', 'white': '#ffffff',
@@ -69,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const cleanName = name.toLowerCase().trim();
         if (colorMap[cleanName]) return colorMap[cleanName];
 
-        // Simple hash fallback for unmapped colors so they have beautiful swatches
         let hash = 0;
         for (let i = 0; i < cleanName.length; i++) {
             hash = cleanName.charCodeAt(i) + ((hash << 5) - hash);
@@ -82,7 +83,81 @@ document.addEventListener('DOMContentLoaded', () => {
         return color;
     }
 
-    // Helper: Build dynamic filters based on active backoffice configurations
+    // Helper: Normalize URL pathname to match reliably
+    function getUrlPathname(urlStr) {
+        if (!urlStr) return '';
+        try {
+            const u = new URL(urlStr, window.location.origin);
+            return u.pathname;
+        } catch(e) {
+            return urlStr;
+        }
+    }
+
+    // Attempt to detect and map theme product cards for Live Category Filtering
+    function detectThemeProducts() {
+        // Common CSS classes used by PrestaShop 1.7 themes to render products
+        const cardSelectors = [
+            '.product-miniature',
+            '.js-product-miniature',
+            '.product-miniature-wrapper',
+            '.product-preview',
+            'article.product-miniature',
+            '.products .product'
+        ];
+
+        let foundCards = [];
+        for (const selector of cardSelectors) {
+            const els = document.querySelectorAll(selector);
+            if (els && els.length > 0) {
+                foundCards = Array.from(els);
+                break;
+            }
+        }
+
+        if (foundCards.length === 0) {
+            isCategoryLiveFilter = false;
+            return;
+        }
+
+        mappedThemeCards = [];
+        foundCards.forEach(cardEl => {
+            // Get product ID or URL to match
+            let productId = cardEl.getAttribute('data-id-product');
+            const anchors = cardEl.querySelectorAll('a[href]');
+            let hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
+
+            // Find matching product from JSON array
+            let matchedProduct = null;
+            if (productId) {
+                matchedProduct = products.find(p => p.id_product == productId);
+            }
+            if (!matchedProduct && hrefs.length > 0) {
+                matchedProduct = products.find(p => {
+                    const pPath = getUrlPathname(p.url);
+                    return hrefs.includes(pPath);
+                });
+            }
+
+            if (matchedProduct) {
+                mappedThemeCards.push({
+                    el: cardEl,
+                    product: matchedProduct
+                });
+            }
+        });
+
+        if (mappedThemeCards.length > 0) {
+            isCategoryLiveFilter = true;
+            // Hide our duplicate product list area as we filter the theme cards directly
+            const configMainArea = document.querySelector('.config-main');
+            if (configMainArea) {
+                configMainArea.style.display = 'none';
+            }
+        }
+    }
+
+    // Helper: Build dynamic filters based on configuration
     function buildDynamicFilters() {
         dynamicFiltersContainer.innerHTML = '';
         filterStates = {};
@@ -102,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             header.className = 'filter-header';
             header.innerHTML = `
                 <label>${label}</label>
-                <i class="material-icons chevron">expand_more</i>
+                <i class="material-icons">expand_more</i>
             `;
             groupDiv.appendChild(header);
 
@@ -117,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (fid === 'price') {
-                // Price range slider
                 const prices = products.map(p => p.price || 0);
                 const min = prices.length ? Math.min(...prices) : 0;
                 const max = prices.length ? Math.max(...prices) : 0;
@@ -144,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupSliderEvents('price', filterStates[fid], true);
 
             } else if (type === 'slider') {
-                // General numeric single slider
                 const values = products.map(p => {
                     const featVal = p.features && p.features['f_' + fid];
                     return parseNumber(featVal);
@@ -176,7 +249,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupSliderEvents(fid, filterStates[fid], false);
 
             } else if (type === 'size_split') {
-                // Width & Height double dual range slider split
                 const widths = [];
                 const heights = [];
 
@@ -236,7 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupSizeSplitEvents(fid, filterStates[fid]);
 
             } else if (type === 'checkboxes') {
-                // Multi-select option pills or circular color swatches
                 const uniqueValues = [...new Set(products.map(p => {
                     return p.features && p.features['f_' + fid];
                 }).filter(Boolean))].sort();
@@ -248,11 +319,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     featureId: fid
                 };
 
-                // Detect if it is a color swatch filter
                 const isColor = /kolor|color|barwa/i.test(label);
 
                 if (isColor) {
-                    // Render beautiful circular color swatch grid
                     const swatchesHtml = uniqueValues.map(val => {
                         const hex = getSwatchColor(val);
                         const lightBorder = hex.toLowerCase() === '#ffffff' ? 'border: 1px solid #cbd5e1;' : '';
@@ -265,7 +334,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     setupSwatchEvents(fid, filterStates[fid]);
 
                 } else {
-                    // Render beautiful rectangular pills with dynamic option parentheses counts
                     const inCategorySearchId = `search-cat-${fid}`;
                     const itemsContainerId = `list-${fid}`;
 
@@ -275,7 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <input type="text" id="${inCategorySearchId}" placeholder="Wyszukaj wartości...">
                         </div>
                         <div class="pill-filter-list" id="${itemsContainerId}">
-                            <!-- Populated dynamically to support reactive live counts update -->
                         </div>
                     `;
 
@@ -287,7 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Helper: setup dual range slider listeners
     function setupSliderEvents(id, state, isDecimal) {
         const minRange = document.getElementById(`min-${id}`);
         const maxRange = document.getElementById(`max-${id}`);
@@ -339,7 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Helper: setup double range slider split (width x height)
     function setupSizeSplitEvents(id, state) {
         // Width
         const minWRange = document.getElementById(`min-${id}-w`);
@@ -438,7 +503,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Helper: setup circular color swatch events
     function setupSwatchEvents(id, state) {
         const grid = document.getElementById(`grid-${id}`);
         if (!grid) return;
@@ -460,12 +524,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Helper: setup rectangular button pills events with internal search filter
     function setupPillsEvents(id, state, searchInputId, containerId) {
         const searchInput = document.getElementById(searchInputId);
         const container = document.getElementById(containerId);
 
-        // Track local search term for list filtration
         state.searchTerm = '';
 
         searchInput.addEventListener('input', () => {
@@ -473,15 +535,12 @@ document.addEventListener('DOMContentLoaded', () => {
             updatePillsRender(id, state, container);
         });
 
-        // Trigger initial rendering of pills list
         updatePillsRender(id, state, container);
     }
 
-    // Renders pills with dynamic option parentheses counts
     function updatePillsRender(id, state, container) {
         container.innerHTML = '';
 
-        // Filter options by local search keyword
         const visibleOptions = state.allOptions.filter(opt => {
             return opt.toLowerCase().includes(state.searchTerm);
         });
@@ -498,9 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pill.classList.add('active');
             }
 
-            // Multi-facet counting: count matching products if we force this option on this field
             const count = countProductsForOption(id, opt);
-
             pill.innerHTML = `${opt} <span style="font-weight:400;margin-left:4px;opacity:0.75;">(${count})</span>`;
 
             pill.addEventListener('click', () => {
@@ -512,7 +569,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (idx > -1) state.selected.splice(idx, 1);
                 }
                 applyFilters();
-                // Update counts reactively on all other pills lists
                 updateAllCheckboxesPills();
             });
 
@@ -520,7 +576,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Helper: update all pills render lists reactively to refresh parentheses counts
     function updateAllCheckboxesPills() {
         for (const [fid, state] of Object.entries(filterStates)) {
             if (state.type === 'checkboxes') {
@@ -536,18 +591,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Multi-facet dynamic product counter helper
     function countProductsForOption(targetFid, optValue) {
         return products.filter(p => {
             for (const [fid, state] of Object.entries(filterStates)) {
-                // If it is the filter we are counting options for, we check if product features match 'optValue'
                 if (fid == targetFid) {
                     const featVal = p.features && p.features['f_' + fid];
                     if (featVal !== optValue) {
                         return false;
                     }
                 } else {
-                    // Otherwise, check regular active states of other filters
                     if (fid === 'price') {
                         if (p.price < state.currentMin || p.price > state.currentMax) return false;
                     } else if (state.type === 'slider') {
@@ -571,7 +623,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }).length;
     }
 
-    // Apply active filter logic and render product grid
     function applyFilters() {
         const filtered = products.filter(p => {
             for (const [fid, state] of Object.entries(filterStates)) {
@@ -604,12 +655,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         });
 
-        renderProducts(filtered);
+        if (isCategoryLiveFilter) {
+            // Apply visibility toggle on current category view theme product cards directly!
+            let visibleCount = 0;
+            mappedThemeCards.forEach(item => {
+                const isMatched = filtered.some(fp => fp.id_product == item.product.id_product);
+                if (isMatched) {
+                    item.el.style.display = '';
+                    visibleCount++;
+                } else {
+                    item.el.style.display = 'none';
+                }
+            });
+
+            // Update badge count
+            if (productCountBadge) {
+                productCountBadge.textContent = visibleCount;
+            }
+        } else {
+            // Standalone list rendering
+            renderProducts(filtered);
+        }
     }
 
-    // Render list of matching products
     function renderProducts(items) {
-        productCountBadge.textContent = items.length;
+        if (productCountBadge) {
+            productCountBadge.textContent = items.length;
+        }
         productListContainer.innerHTML = '';
 
         if (items.length === 0) {
@@ -624,7 +696,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const imgUrl = p.image || '/img/p/pl-default-home_default.jpg';
 
-            // Gather dynamically mapped features description badges
             let detailsHtml = '';
             filtersConfig.forEach(f => {
                 if (f.active && f.id !== 'price') {
@@ -654,13 +725,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Reset all triggers and UI elements to initial values
     btnResetAll.addEventListener('click', () => {
         buildDynamicFilters();
         applyFilters();
     });
 
-    // Mobile Sidebar Toggles
     if (toggleSidebarBtn) {
         toggleSidebarBtn.addEventListener('click', () => {
             sidebar.classList.add('open');
@@ -672,6 +741,9 @@ document.addEventListener('DOMContentLoaded', () => {
             sidebar.classList.remove('open');
         });
     }
+
+    // Try to detect theme products on the category page first
+    detectThemeProducts();
 
     // Initial builder execution
     buildDynamicFilters();

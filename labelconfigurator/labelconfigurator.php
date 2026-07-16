@@ -222,11 +222,29 @@ class LabelConfigurator extends Module implements WidgetInterface
         $id_lang = (int)$this->context->language->id;
         $id_shop = (int)$this->context->shop->id;
 
+        // Dynamic Category Scoping
+        $id_category = (int)Tools::getValue('id_category');
+        $controller = $this->context->controller;
+        if ($id_category === 0 && isset($controller->php_self) && $controller->php_self === 'category') {
+            $category = $controller->getCategory();
+            if (Validate::isLoadedObject($category)) {
+                $id_category = (int)$category->id;
+            }
+        }
+
+        $category_join = '';
+        $category_where = '';
+        if ($id_category > 0) {
+            $category_join = " JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product) ";
+            $category_where = " AND cp.id_category = $id_category ";
+        }
+
         $sql = "SELECT p.id_product, pl.name
                 FROM "._DB_PREFIX_."product p
                 JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang AND pl.id_shop = $id_shop)
                 JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
-                WHERE ps.active = 1 LIMIT 300";
+                $category_join
+                WHERE ps.active = 1 $category_where LIMIT 300";
 
         $products_raw = Db::getInstance()->executeS($sql);
         $results = [];
@@ -273,6 +291,17 @@ class LabelConfigurator extends Module implements WidgetInterface
     {
         $results = $this->getFilteredProductsData();
         $filters_config = Configuration::get('LC_FILTERS_CONFIG');
+        if (!$filters_config) {
+            $default_config = [
+                ['id' => 'price', 'active' => true, 'label' => 'Cena (PLN)', 'type' => 'slider'],
+                ['id' => 6, 'active' => true, 'label' => 'Rozmiar (Szer. x Wys.)', 'type' => 'size_split'],
+                ['id' => 14, 'active' => true, 'label' => 'Średnica (mm)', 'type' => 'slider'],
+                ['id' => 23, 'active' => true, 'label' => 'Materiał', 'type' => 'checkboxes'],
+                ['id' => 27, 'active' => true, 'label' => 'Kształt', 'type' => 'checkboxes'],
+                ['id' => 15, 'active' => true, 'label' => 'Etykiet na arkuszu', 'type' => 'checkboxes']
+            ];
+            $filters_config = json_encode($default_config);
+        }
 
         $this->smarty->assign('products_json', json_encode($results));
         $this->smarty->assign('filters_config_json', $filters_config);
