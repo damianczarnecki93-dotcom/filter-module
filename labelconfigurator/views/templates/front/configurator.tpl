@@ -1,90 +1,21 @@
 <div id="configurator-app">
-    <!-- Raw preloaded product JSON -->
+    <!-- Preloaded Data for Client-Side Engine -->
     <div id="json-data" style="display:none;">{$products_json|escape:'html':'UTF-8'}</div>
+    <div id="config-data" style="display:none;">{$filters_config_json|escape:'html':'UTF-8'}</div>
 
     <!-- Main Configurator Layout -->
     <div class="config-layout">
 
-        <!-- Left Sidebar: Filters -->
+        <!-- Left Sidebar: Dynamic Filters Panel -->
         <div class="config-sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h3><i class="material-icons">filter_list</i> FILTRY</h3>
                 <button class="close-sidebar-btn" id="close-sidebar">&times;</button>
             </div>
 
-            <!-- Search Filter -->
-            <div class="filter-group">
-                <label for="search-input">Szukaj produktu:</label>
-                <div class="search-wrapper">
-                    <input type="text" id="search-input" placeholder="Wpisz nazwę...">
-                    <i class="material-icons search-icon">search</i>
-                </div>
-            </div>
-
-            <!-- Price Filter -->
-            <div class="filter-group">
-                <label>Cena (PLN):</label>
-                <div class="input-range-wrapper">
-                    <input type="number" class="manual-input" id="val-p-min" value="0" min="0" step="0.01">
-                    <span>-</span>
-                    <input type="number" class="manual-input" id="val-p-max" value="0" min="0" step="0.01">
-                </div>
-                <div class="dual-slider">
-                    <input type="range" id="min-p" value="0" step="0.01">
-                    <input type="range" id="max-p" value="0" step="0.01">
-                </div>
-            </div>
-
-            <!-- Width Filter -->
-            <div class="filter-group">
-                <label>Szerokość (mm):</label>
-                <div class="input-range-wrapper">
-                    <input type="number" class="manual-input" id="val-w-min" value="0" min="0">
-                    <span>-</span>
-                    <input type="number" class="manual-input" id="val-w-max" value="0" min="0">
-                </div>
-                <div class="dual-slider">
-                    <input type="range" id="min-w" value="0">
-                    <input type="range" id="max-w" value="0">
-                </div>
-            </div>
-
-            <!-- Height Filter -->
-            <div class="filter-group">
-                <label>Wysokość (mm):</label>
-                <div class="input-range-wrapper">
-                    <input type="number" class="manual-input" id="val-h-min" value="0" min="0">
-                    <span>-</span>
-                    <input type="number" class="manual-input" id="val-h-max" value="0" min="0">
-                </div>
-                <div class="dual-slider">
-                    <input type="range" id="min-h" value="0">
-                    <input type="range" id="max-h" value="0">
-                </div>
-            </div>
-
-            <!-- Material Filter -->
-            <div class="filter-group">
-                <label>Materiał:</label>
-                <div id="material-filter-list" class="checkbox-filter-list">
-                    <!-- Loaded dynamically via JS -->
-                </div>
-            </div>
-
-            <!-- Shape Filter -->
-            <div class="filter-group">
-                <label>Kształt:</label>
-                <div id="shape-filter-list" class="checkbox-filter-list">
-                    <!-- Loaded dynamically via JS -->
-                </div>
-            </div>
-
-            <!-- Labels per Sheet Filter -->
-            <div class="filter-group">
-                <label>Etykiet na arkuszu:</label>
-                <div id="labels-filter-list" class="checkbox-filter-list">
-                    <!-- Loaded dynamically via JS -->
-                </div>
+            <!-- Dynamic Filters Placeholder -->
+            <div id="dynamic-filters-container">
+                <!-- Built dynamically via Javascript -->
             </div>
 
             <!-- Reset Filters -->
@@ -115,7 +46,7 @@
     </div>
 </div>
 
-<!-- Load Google Material Icons if not loaded -->
+<!-- Load Google Material Icons -->
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
 <style>
@@ -130,14 +61,8 @@
     .close-sidebar-btn { display: none; background: none; border: none; font-size: 28px; color: #64748b; cursor: pointer; }
 
     .filter-group { margin-bottom: 25px; border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; }
-    .filter-group:last-of-type { border-bottom: none; }
+    .filter-group:last-of-type { border-bottom: none; margin-bottom: 15px; }
     .filter-group label { display: block; font-weight: 600; margin-bottom: 10px; font-size: 14px; color: #334155; }
-
-    /* Search Bar */
-    .search-wrapper { position: relative; }
-    #search-input { width: 100%; padding: 10px 35px 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; color: #1e293b; box-sizing: border-box; transition: border-color 0.2s; }
-    #search-input:focus { outline: none; border-color: #2c7da0; }
-    .search-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 20px; }
 
     /* Input Range & Sliders */
     .input-range-wrapper { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
@@ -159,11 +84,11 @@
     .checkbox-filter-list::-webkit-scrollbar { width: 5px; }
     .checkbox-filter-list::-webkit-scrollbar-track { background: #f1f5f9; }
     .checkbox-filter-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-    .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: #475569; cursor: pointer; user-select: none; }
+    .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: #475569; cursor: pointer; user-select: none; text-align: left; }
     .filter-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2c7da0; cursor: pointer; margin: 0; }
 
     /* Reset button */
-    .btn-reset { width: 100%; padding: 12px; background: #f1f5f9; border: none; border-radius: 6px; color: #475569; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; }
+    .btn-reset { width: 100%; padding: 12px; background: #f1f5f9; border: none; border-radius: 6px; color: #475569; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; margin-top: 10px; }
     .btn-reset:hover { background: #e2e8f0; color: #1e293b; }
 
     /* Main Area */
@@ -191,9 +116,9 @@
     .card-img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.3s; }
     .product-card:hover .card-img { transform: scale(1.05); }
 
-    .card-title { font-weight: 700; font-size: 15px; color: #1e293b; margin: 0 0 10px; line-height: 1.4; height: 42px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .card-title { font-weight: 700; font-size: 15px; color: #1e293b; margin: 0 0 10px; line-height: 1.4; height: 42px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; }
 
-    .card-price { font-size: 18px; font-weight: 800; color: #2c7da0; margin-bottom: 12px; }
+    .card-price { font-size: 18px; font-weight: 800; color: #2c7da0; margin-bottom: 12px; text-align: left; }
 
     .card-details { margin-bottom: 18px; border-top: 1px solid #f1f5f9; padding-top: 12px; }
     .card-details p { margin: 6px 0; font-size: 12px; color: #64748b; display: flex; justify-content: space-between; }

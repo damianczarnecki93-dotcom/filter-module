@@ -21,8 +21,10 @@ class LabelConfiguratorDisplayModuleFrontController extends ModuleFrontControlle
 
         // Get products via module's getFilteredProductsData method
         $results = $this->module->getFilteredProductsData();
+        $filters_config = Configuration::get('LC_FILTERS_CONFIG');
 
         $this->context->smarty->assign('products_json', json_encode($results));
+        $this->context->smarty->assign('filters_config_json', $filters_config);
         $this->setTemplate('module:labelconfigurator/views/templates/front/configurator.tpl');
     }
 }

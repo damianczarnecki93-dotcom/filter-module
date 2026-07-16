@@ -16,29 +16,60 @@ class LabelConfigurator extends Module implements WidgetInterface
         $this->need_instance = 0;
         parent::__construct();
         $this->displayName = 'Konfigurator Etykiet';
-        $this->description = 'Zaawansowany konfigurator etykiet z panelem konfiguracji cech';
+        $this->description = 'Zaawansowany konfigurator etykiet z rozbudowanym panelem mapowania cech';
     }
 
     public function install()
     {
+        $default_config = [
+            [
+                'id' => 'price',
+                'active' => true,
+                'label' => 'Cena (PLN)',
+                'type' => 'slider'
+            ],
+            [
+                'id' => 6,
+                'active' => true,
+                'label' => 'Rozmiar (Szer. x Wys.)',
+                'type' => 'size_split'
+            ],
+            [
+                'id' => 14,
+                'active' => true,
+                'label' => 'Średnica (mm)',
+                'type' => 'slider'
+            ],
+            [
+                'id' => 23,
+                'active' => true,
+                'label' => 'Materiał',
+                'type' => 'checkboxes'
+            ],
+            [
+                'id' => 27,
+                'active' => true,
+                'label' => 'Kształt',
+                'type' => 'checkboxes'
+            ],
+            [
+                'id' => 15,
+                'active' => true,
+                'label' => 'Etykiet na arkuszu',
+                'type' => 'checkboxes'
+            ]
+        ];
+
         return parent::install()
             && $this->registerHook('displayLeftColumn')
             && $this->registerHook('actionFrontControllerSetMedia')
-            && Configuration::updateValue('LC_FEATURE_SIZE', 6)
-            && Configuration::updateValue('LC_FEATURE_DIAMETER', 14)
-            && Configuration::updateValue('LC_FEATURE_MATERIAL', 23)
-            && Configuration::updateValue('LC_FEATURE_SHAPE', 27)
-            && Configuration::updateValue('LC_FEATURE_LABELS', 15);
+            && Configuration::updateValue('LC_FILTERS_CONFIG', json_encode($default_config));
     }
 
     public function uninstall()
     {
         return parent::uninstall()
-            && Configuration::deleteByName('LC_FEATURE_SIZE')
-            && Configuration::deleteByName('LC_FEATURE_DIAMETER')
-            && Configuration::deleteByName('LC_FEATURE_MATERIAL')
-            && Configuration::deleteByName('LC_FEATURE_SHAPE')
-            && Configuration::deleteByName('LC_FEATURE_LABELS');
+            && Configuration::deleteByName('LC_FILTERS_CONFIG');
     }
 
     public function getContent()
@@ -46,136 +77,132 @@ class LabelConfigurator extends Module implements WidgetInterface
         $output = '';
 
         if (Tools::isSubmit('submitLabelConfigurator')) {
-            Configuration::updateValue('LC_FEATURE_SIZE', (int)Tools::getValue('LC_FEATURE_SIZE'));
-            Configuration::updateValue('LC_FEATURE_DIAMETER', (int)Tools::getValue('LC_FEATURE_DIAMETER'));
-            Configuration::updateValue('LC_FEATURE_MATERIAL', (int)Tools::getValue('LC_FEATURE_MATERIAL'));
-            Configuration::updateValue('LC_FEATURE_SHAPE', (int)Tools::getValue('LC_FEATURE_SHAPE'));
-            Configuration::updateValue('LC_FEATURE_LABELS', (int)Tools::getValue('LC_FEATURE_LABELS'));
+            $id_lang = (int)$this->context->language->id;
+            $features = Feature::getFeatures($id_lang);
 
-            $output .= $this->displayConfirmation($this->l('Ustawienia zostały zapisane.'));
+            $config = [];
+
+            // Special price config
+            $config[] = [
+                'id' => 'price',
+                'active' => (bool)Tools::getValue('active_price'),
+                'label' => Tools::getValue('label_price', 'Cena (PLN)'),
+                'type' => 'slider'
+            ];
+
+            // Dynamic features config
+            if ($features) {
+                foreach ($features as $f) {
+                    $fid = (int)$f['id_feature'];
+                    $config[] = [
+                        'id' => $fid,
+                        'active' => (bool)Tools::getValue('active_' . $fid),
+                        'label' => Tools::getValue('label_' . $fid, $f['name']),
+                        'type' => Tools::getValue('type_' . $fid, 'checkboxes')
+                    ];
+                }
+            }
+
+            Configuration::updateValue('LC_FILTERS_CONFIG', json_encode($config));
+            $output .= $this->displayConfirmation($this->l('Ustawienia filtrów zostały zapisane pomyślnie.'));
         }
 
-        return $output . $this->renderForm();
+        return $output . $this->renderConfigForm();
     }
 
-    protected function renderForm()
+    protected function renderConfigForm()
     {
         $id_lang = (int)$this->context->language->id;
         $features = Feature::getFeatures($id_lang);
 
-        $features_options = [
-            [
-                'id_feature' => 0,
-                'name' => '-- Wybierz cechę (lub wyłącz) --'
-            ]
-        ];
-
-        foreach ($features as $f) {
-            $features_options[] = [
-                'id_feature' => (int)$f['id_feature'],
-                'name' => $f['name'] . ' (ID: ' . $f['id_feature'] . ')'
-            ];
+        // Load current config
+        $current_config = json_decode(Configuration::get('LC_FILTERS_CONFIG'), true);
+        if (!is_array($current_config)) {
+            $current_config = [];
         }
 
-        $fields_form = [
-            'form' => [
-                'legend' => [
-                    'title' => $this->l('Konfiguracja Mapowania Cech'),
-                    'icon' => 'icon-cogs'
-                ],
-                'input' => [
-                    [
-                        'type' => 'select',
-                        'label' => $this->l('Cecha: Rozmiar (Szerokość x Wysokość)'),
-                        'name' => 'LC_FEATURE_SIZE',
-                        'desc' => $this->l('Wybierz cechę przechowującą rozmiar np. "70x37" lub "105 x 148 mm".'),
-                        'options' => [
-                            'query' => $features_options,
-                            'id' => 'id_feature',
-                            'name' => 'name'
-                        ]
-                    ],
-                    [
-                        'type' => 'select',
-                        'label' => $this->l('Cecha: Średnica'),
-                        'name' => 'LC_FEATURE_DIAMETER',
-                        'desc' => $this->l('Wybierz cechę przechowującą średnicę dla etykiet okrągłych.'),
-                        'options' => [
-                            'query' => $features_options,
-                            'id' => 'id_feature',
-                            'name' => 'name'
-                        ]
-                    ],
-                    [
-                        'type' => 'select',
-                        'label' => $this->l('Cecha: Materiał'),
-                        'name' => 'LC_FEATURE_MATERIAL',
-                        'desc' => $this->l('Wybierz cechę przechowującą materiał.'),
-                        'options' => [
-                            'query' => $features_options,
-                            'id' => 'id_feature',
-                            'name' => 'name'
-                        ]
-                    ],
-                    [
-                        'type' => 'select',
-                        'label' => $this->l('Cecha: Kształt'),
-                        'name' => 'LC_FEATURE_SHAPE',
-                        'desc' => $this->l('Wybierz cechę przechowującą kształt.'),
-                        'options' => [
-                            'query' => $features_options,
-                            'id' => 'id_feature',
-                            'name' => 'name'
-                        ]
-                    ],
-                    [
-                        'type' => 'select',
-                        'label' => $this->l('Cecha: Liczba etykiet na arkuszu'),
-                        'name' => 'LC_FEATURE_LABELS',
-                        'desc' => $this->l('Wybierz cechę przechowującą liczbę etykiet na arkuszu.'),
-                        'options' => [
-                            'query' => $features_options,
-                            'id' => 'id_feature',
-                            'name' => 'name'
-                        ]
-                    ]
-                ],
-                'submit' => [
-                    'title' => $this->l('Zapisz'),
-                    'class' => 'btn btn-default pull-right'
-                ]
-            ]
-        ];
+        // Index by ID for easier lookup
+        $config_by_id = [];
+        foreach ($current_config as $item) {
+            $config_by_id[$item['id']] = $item;
+        }
 
-        $helper = new HelperForm();
-        $helper->show_toolbar = false;
-        $helper->table = $this->table;
-        $lang = new Language((int)Configuration::get('PS_LANG_DEFAULT'));
-        $helper->default_form_language = $lang->id;
-        $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
-        $helper->identifier = $this->identifier;
-        $helper->submit_action = 'submitLabelConfigurator';
-        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
-        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        // Start building custom HTML configuration panel
+        $html = '<div class="panel">';
+        $html .= '  <div class="panel-heading"><i class="icon-cogs"></i> ' . htmlspecialchars($this->l('Zaawansowana konfiguracja lewego paska filtrów'), ENT_QUOTES, 'UTF-8') . '</div>';
+        $html .= '  <form action="' . htmlspecialchars($_SERVER['REQUEST_URI'], ENT_QUOTES, 'UTF-8') . '" method="post" class="form-horizontal">';
+        $html .= '    <p class="alert alert-info">' . htmlspecialchars($this->l('Włącz lub wyłącz poszczególne filtry na podstawie cech sklepu, nadaj im przyjazne dla klientów etykiety i wybierz sposób prezentacji (np. lista checkboxów dla materiałów/kształtów lub suwak dla wartości liczbowych).'), ENT_QUOTES, 'UTF-8') . '</p>';
 
-        $helper->tpl_vars = [
-            'fields_value' => $this->getConfigFieldsValues(),
-            'languages' => $this->context->controller->getLanguages(),
-            'id_language' => $this->context->language->id
-        ];
+        $html .= '    <table class="table">';
+        $html .= '      <thead>';
+        $html .= '        <tr>';
+        $html .= '          <th width="80px" class="text-center">' . htmlspecialchars($this->l('Aktywny'), ENT_QUOTES, 'UTF-8') . '</th>';
+        $html .= '          <th>' . htmlspecialchars($this->l('Cecha / Pole w sklepie'), ENT_QUOTES, 'UTF-8') . '</th>';
+        $html .= '          <th>' . htmlspecialchars($this->l('Etykieta filtra na sklepie'), ENT_QUOTES, 'UTF-8') . '</th>';
+        $html .= '          <th>' . htmlspecialchars($this->l('Typ prezentacji filtra'), ENT_QUOTES, 'UTF-8') . '</th>';
+        $html .= '        </tr>';
+        $html .= '      </thead>';
+        $html .= '      <tbody>';
 
-        return $helper->generateForm([$fields_form]);
-    }
+        // 1. Special Price Row
+        $price_conf = isset($config_by_id['price']) ? $config_by_id['price'] : ['active' => true, 'label' => 'Cena (PLN)', 'type' => 'slider'];
+        $price_checked = $price_conf['active'] ? 'checked="checked"' : '';
 
-    public function getConfigFieldsValues()
-    {
-        return [
-            'LC_FEATURE_SIZE' => Configuration::get('LC_FEATURE_SIZE'),
-            'LC_FEATURE_DIAMETER' => Configuration::get('LC_FEATURE_DIAMETER'),
-            'LC_FEATURE_MATERIAL' => Configuration::get('LC_FEATURE_MATERIAL'),
-            'LC_FEATURE_SHAPE' => Configuration::get('LC_FEATURE_SHAPE'),
-            'LC_FEATURE_LABELS' => Configuration::get('LC_FEATURE_LABELS'),
-        ];
+        $html .= '        <tr style="background-color: #f9f9f9; font-weight: bold;">';
+        $html .= '          <td class="text-center">';
+        $html .= '            <input type="checkbox" name="active_price" value="1" ' . $price_checked . ' />';
+        $html .= '          </td>';
+        $html .= '          <td>' . htmlspecialchars($this->l('CENA PRODUKTU'), ENT_QUOTES, 'UTF-8') . ' (Special)</td>';
+        $html .= '          <td>';
+        $html .= '            <input type="text" class="form-control" name="label_price" value="' . htmlspecialchars($price_conf['label'], ENT_QUOTES, 'UTF-8') . '" />';
+        $html .= '          </td>';
+        $html .= '          <td>';
+        $html .= '            <span class="label label-info">' . htmlspecialchars($this->l('Suwak ceny (Slider)'), ENT_QUOTES, 'UTF-8') . '</span>';
+        $html .= '          </td>';
+        $html .= '        </tr>';
+
+        // 2. Features Rows
+        if ($features) {
+            foreach ($features as $f) {
+                $fid = (int)$f['id_feature'];
+                $f_name = $f['name'];
+
+                // Read from config, default: disabled, original name, checkboxes type
+                $f_conf = isset($config_by_id[$fid]) ? $config_by_id[$fid] : ['active' => false, 'label' => $f_name, 'type' => 'checkboxes'];
+
+                $checked = $f_conf['active'] ? 'checked="checked"' : '';
+                $label_val = $f_conf['label'];
+                $type_val = $f_conf['type'];
+
+                $html .= '        <tr>';
+                $html .= '          <td class="text-center">';
+                $html .= '            <input type="checkbox" name="active_' . $fid . '" value="1" ' . $checked . ' />';
+                $html .= '          </td>';
+                $html .= '          <td>' . htmlspecialchars($f_name, ENT_QUOTES, 'UTF-8') . ' <small class="text-muted">(ID: ' . $fid . ')</small></td>';
+                $html .= '          <td>';
+                $html .= '            <input type="text" class="form-control" name="label_' . $fid . '" value="' . htmlspecialchars($label_val, ENT_QUOTES, 'UTF-8') . '" />';
+                $html .= '          </td>';
+                $html .= '          <td>';
+                $html .= '            <select class="form-control" name="type_' . $fid . '">';
+                $html .= '              <option value="checkboxes" ' . ($type_val == 'checkboxes' ? 'selected' : '') . '>' . htmlspecialchars($this->l('Lista checkboxów (Multi-select)'), ENT_QUOTES, 'UTF-8') . '</option>';
+                $html .= '              <option value="slider" ' . ($type_val == 'slider' ? 'selected' : '') . '>' . htmlspecialchars($this->l('Suwak zakresu liczbowego'), ENT_QUOTES, 'UTF-8') . '</option>';
+                $html .= '              <option value="size_split" ' . ($type_val == 'size_split' ? 'selected' : '') . '>' . htmlspecialchars($this->l('Wymiary "Szerokość x Wysokość" (np. 70x37)'), ENT_QUOTES, 'UTF-8') . '</option>';
+                $html .= '            </select>';
+                $html .= '          </td>';
+                $html .= '        </tr>';
+            }
+        }
+
+        $html .= '      </tbody>';
+        $html .= '    </table>';
+
+        $html .= '    <div class="panel-footer">';
+        $html .= '      <button type="submit" name="submitLabelConfigurator" class="btn btn-default pull-right"><i class="process-icon-save"></i> ' . htmlspecialchars($this->l('Zapisz konfigurację'), ENT_QUOTES, 'UTF-8') . '</button>';
+        $html .= '    </div>';
+        $html .= '  </form>';
+        $html .= '</div>';
+
+        return $html;
     }
 
     public function hookActionFrontControllerSetMedia($params)
@@ -195,12 +222,6 @@ class LabelConfigurator extends Module implements WidgetInterface
         $id_lang = (int)$this->context->language->id;
         $id_shop = (int)$this->context->shop->id;
 
-        $feat_size = (int)Configuration::get('LC_FEATURE_SIZE');
-        $feat_diameter = (int)Configuration::get('LC_FEATURE_DIAMETER');
-        $feat_material = (int)Configuration::get('LC_FEATURE_MATERIAL');
-        $feat_shape = (int)Configuration::get('LC_FEATURE_SHAPE');
-        $feat_labels = (int)Configuration::get('LC_FEATURE_LABELS');
-
         $sql = "SELECT p.id_product, pl.name
                 FROM "._DB_PREFIX_."product p
                 JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang AND pl.id_shop = $id_shop)
@@ -215,62 +236,34 @@ class LabelConfigurator extends Module implements WidgetInterface
                 $product = new Product($p['id_product'], false, $id_lang);
                 $features = $product->getFrontFeatures($id_lang);
 
-                $width = 0; $height = 0; $diameter = 0;
-                $material = ''; $shape = ''; $labelsPerSheet = '';
-
-                foreach ($features as $f) {
-                    $id_feature = (int)$f['id_feature'];
-                    if ($feat_size > 0 && $id_feature == $feat_size) {
-                        if (preg_match('/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i', $f['value'], $matches)) {
-                            $width = (float)str_replace(',', '.', $matches[1]);
-                            $height = (float)str_replace(',', '.', $matches[2]);
-                        }
-                    } elseif ($feat_diameter > 0 && $id_feature == $feat_diameter) {
-                        if (preg_match('/(\d+(?:[.,]\d+)?)/', $f['value'], $matches)) {
-                            $diameter = (float)str_replace(',', '.', $matches[1]);
-                        }
-                    } elseif ($feat_material > 0 && $id_feature == $feat_material) {
-                        $material = $f['value'];
-                    } elseif ($feat_shape > 0 && $id_feature == $feat_shape) {
-                        $shape = $f['value'];
-                    } elseif ($feat_labels > 0 && $id_feature == $feat_labels) {
-                        $labelsPerSheet = $f['value'];
+                $features_indexed = [];
+                if ($features) {
+                    foreach ($features as $f) {
+                        $features_indexed[(int)$f['id_feature']] = trim($f['value']);
                     }
                 }
 
-                if ($width == 0 && $height == 0 && $diameter > 0) {
-                    $width = $diameter;
-                    $height = $diameter;
+                // Get cover image
+                $image_url = '';
+                $cover = Product::getCover((int)$p['id_product']);
+                if ($cover) {
+                    $id_image = (int)$cover['id_image'];
+                    $image_url = $this->context->link->getImageLink($product->link_rewrite, $id_image, 'home_default');
                 }
 
-                if ($width > 0 && $height > 0) {
-                    // Get cover image
-                    $image_url = '';
-                    $cover = Product::getCover((int)$p['id_product']);
-                    if ($cover) {
-                        $id_image = (int)$cover['id_image'];
-                        $image_url = $this->context->link->getImageLink($product->link_rewrite, $id_image, 'home_default');
-                    }
+                // Get price
+                $price = (float)Product::getPriceStatic((int)$p['id_product'], true, null, 6);
+                $formatted_price = Tools::displayPrice($price);
 
-                    // Get price
-                    $price = (float)Product::getPriceStatic((int)$p['id_product'], true, null, 6);
-                    $formatted_price = Tools::displayPrice($price);
-
-                    $results[] = [
-                        'id_product' => (int)$p['id_product'],
-                        'name' => $p['name'],
-                        'width' => $width,
-                        'height' => $height,
-                        'diameter' => $diameter,
-                        'material' => trim($material),
-                        'shape' => trim($shape),
-                        'labelsPerSheet' => trim($labelsPerSheet),
-                        'price' => $price,
-                        'formatted_price' => $formatted_price,
-                        'image' => $image_url,
-                        'url' => $this->context->link->getProductLink((int)$p['id_product'], null, null, null, $id_lang, $id_shop)
-                    ];
-                }
+                $results[] = [
+                    'id_product' => (int)$p['id_product'],
+                    'name' => $p['name'],
+                    'price' => $price,
+                    'formatted_price' => $formatted_price,
+                    'image' => $image_url,
+                    'url' => $this->context->link->getProductLink((int)$p['id_product'], null, null, null, $id_lang, $id_shop),
+                    'features' => $features_indexed
+                ];
             }
         }
         return $results;
@@ -279,7 +272,11 @@ class LabelConfigurator extends Module implements WidgetInterface
     public function renderWidget($hookName = null, array $configuration = [])
     {
         $results = $this->getFilteredProductsData();
+        $filters_config = Configuration::get('LC_FILTERS_CONFIG');
+
         $this->smarty->assign('products_json', json_encode($results));
+        $this->smarty->assign('filters_config_json', $filters_config);
+
         return $this->fetch('module:labelconfigurator/views/templates/front/configurator.tpl');
     }
 
