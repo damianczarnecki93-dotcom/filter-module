@@ -239,7 +239,7 @@ class LabelConfigurator extends Module implements WidgetInterface
                 $features_indexed = [];
                 if ($features) {
                     foreach ($features as $f) {
-                        $features_indexed[(int)$f['id_feature']] = trim($f['value']);
+                        $features_indexed['f_' . (int)$f['id_feature']] = trim($f['value']);
                     }
                 }
 
@@ -262,7 +262,7 @@ class LabelConfigurator extends Module implements WidgetInterface
                     'formatted_price' => $formatted_price,
                     'image' => $image_url,
                     'url' => $this->context->link->getProductLink((int)$p['id_product'], null, null, null, $id_lang, $id_shop),
-                    'features' => $features_indexed
+                    'features' => (object)$features_indexed
                 ];
             }
         }

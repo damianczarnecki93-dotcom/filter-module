@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (type === 'slider') {
                 // Numeric slider for a feature
                 const values = products.map(p => {
-                    const featVal = p.features && p.features[fid];
+                    const featVal = p.features && p.features['f_' + fid];
                     return parseNumber(featVal);
                 }).filter(v => v > 0);
 
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const heights = [];
 
                 products.forEach(p => {
-                    const featVal = p.features && p.features[fid];
+                    const featVal = p.features && p.features['f_' + fid];
                     if (featVal) {
                         const parsed = parseSizeSplit(featVal);
                         if (parsed.w > 0) widths.push(parsed.w);
@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (type === 'checkboxes') {
                 // Multi-select list of checkboxes
                 const uniqueValues = [...new Set(products.map(p => {
-                    return p.features && p.features[fid];
+                    return p.features && p.features['f_' + fid];
                 }).filter(Boolean))].sort();
 
                 filterStates[fid] = {
@@ -401,14 +401,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (state.type === 'slider') {
                     // Check simple numeric slider boundaries
-                    const featVal = p.features && p.features[fid];
+                    const featVal = p.features && p.features['f_' + fid];
                     const num = parseNumber(featVal);
                     if (num < state.currentMin || num > state.currentMax) {
                         return false;
                     }
                 } else if (state.type === 'size_split') {
                     // Check Width and Height boundaries
-                    const featVal = p.features && p.features[fid];
+                    const featVal = p.features && p.features['f_' + fid];
                     const size = parseSizeSplit(featVal);
                     if (size.w < state.currentMinW || size.w > state.currentMaxW ||
                         size.h < state.currentMinH || size.h > state.currentMaxH) {
@@ -417,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (state.type === 'checkboxes') {
                     // Check multi-select checkbox constraints
                     if (state.selected.length > 0) {
-                        const featVal = p.features && p.features[fid];
+                        const featVal = p.features && p.features['f_' + fid];
                         if (!featVal || !state.selected.includes(featVal)) {
                             return false;
                         }
@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let detailsHtml = '';
             filtersConfig.forEach(f => {
                 if (f.active && f.id !== 'price') {
-                    const val = p.features && p.features[f.id];
+                    const val = p.features && p.features['f_' + f.id];
                     if (val) {
                         detailsHtml += `<p>${f.label}: <span>${val}</span></p>`;
                     }
