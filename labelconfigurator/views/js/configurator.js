@@ -79,6 +79,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Dynamic state trackers
     let filterStates = {};
 
+    // Helper: Safely retrieve feature values without any null pointer exceptions
+    function getFeatureValue(product, fid) {
+        if (!product || !product.features) return '';
+        const features = product.features;
+        const key = 'f_' + fid;
+        if (typeof features === 'object' && features !== null) {
+            if (features[key] !== undefined && features[key] !== null) {
+                return String(features[key]).trim();
+            }
+        }
+        return '';
+    }
+
     // Helper: parse numbers from string
     function parseNumber(val) {
         if (typeof val === 'number') return val;
@@ -234,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } else if (type === 'slider') {
                 const values = products.map(p => {
-                    const featVal = p.features && p.features['f_' + fid];
+                    const featVal = getFeatureValue(p, fid);
                     return parseNumber(featVal);
                 }).filter(v => v > 0);
 
@@ -268,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const heights = [];
 
                 products.forEach(p => {
-                    const featVal = p.features && p.features['f_' + fid];
+                    const featVal = getFeatureValue(p, fid);
                     if (featVal) {
                         const parsed = parseSizeSplit(featVal);
                         if (parsed.w > 0) widths.push(parsed.w);
@@ -324,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } else if (type === 'checkboxes') {
                 const uniqueValues = [...new Set(products.map(p => {
-                    return p.features && p.features['f_' + fid];
+                    return getFeatureValue(p, fid);
                 }).filter(Boolean))].sort();
 
                 filterStates[fid] = {
@@ -655,13 +668,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         return false;
                     }
                 } else if (state.type === 'slider') {
-                    const featVal = p.features && p.features['f_' + fid];
+                    const featVal = getFeatureValue(p, fid);
                     const num = parseNumber(featVal);
                     if (num < state.currentMin || num > state.currentMax) {
                         return false;
                     }
                 } else if (state.type === 'size_split') {
-                    const featVal = p.features && p.features['f_' + fid];
+                    const featVal = getFeatureValue(p, fid);
                     const size = parseSizeSplit(featVal);
                     if (size.w < state.currentMinW || size.w > state.currentMaxW ||
                         size.h < state.currentMinH || size.h > state.currentMaxH) {
@@ -669,7 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (state.type === 'checkboxes') {
                     if (state.selected.length > 0) {
-                        const featVal = p.features && p.features['f_' + fid];
+                        const featVal = getFeatureValue(p, fid);
                         if (!featVal || !state.selected.includes(featVal)) {
                             return false;
                         }

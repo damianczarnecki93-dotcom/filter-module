@@ -77,7 +77,8 @@ class LabelConfigurator extends Module implements WidgetInterface
     public function getContent()
     {
         $output = '';
-        $id_lang = (int)$this->context->language->id;
+        $context = Context::getContext();
+        $id_lang = (int)$context->language->id;
 
         if (Tools::isSubmit('submitLabelConfigurator')) {
             $id_category_filter = (int)Tools::getValue('id_category_filter', 0);
@@ -174,7 +175,8 @@ class LabelConfigurator extends Module implements WidgetInterface
 
     protected function renderConfigForm()
     {
-        $id_lang = (int)$this->context->language->id;
+        $context = Context::getContext();
+        $id_lang = (int)$context->language->id;
         $features = Feature::getFeatures($id_lang);
 
         // Get currently selected category filter
@@ -360,13 +362,14 @@ class LabelConfigurator extends Module implements WidgetInterface
 
     public function getFilteredProductsData()
     {
-        $id_lang = (int)$this->context->language->id;
-        $id_shop = (int)$this->context->shop->id;
+        $context = Context::getContext();
+        $id_lang = (int)$context->language->id;
+        $id_shop = (int)$context->shop->id;
 
-        // Dynamic Category Scoping
+        // Dynamic Category Scoping via Global Context
         $id_category = (int)Tools::getValue('id_category');
         if ($id_category === 0) {
-            $controller = $this->context->controller;
+            $controller = $context->controller;
             if (isset($controller) && method_exists($controller, 'getCategory')) {
                 $category = $controller->getCategory();
                 if (Validate::isLoadedObject($category)) {
@@ -457,7 +460,7 @@ class LabelConfigurator extends Module implements WidgetInterface
                 // Get cover image
                 $image_url = '';
                 if (isset($images_bulk[$id_product])) {
-                    $image_url = $this->context->link->getImageLink($link_rewrite, $images_bulk[$id_product], 'home_default');
+                    $image_url = $context->link->getImageLink($link_rewrite, $images_bulk[$id_product], 'home_default');
                 }
 
                 // Get price
@@ -470,7 +473,7 @@ class LabelConfigurator extends Module implements WidgetInterface
                     'price' => $price,
                     'formatted_price' => $formatted_price,
                     'image' => $image_url,
-                    'url' => $this->context->link->getProductLink($id_product, null, null, null, $id_lang, $id_shop),
+                    'url' => $context->link->getProductLink($id_product, null, null, null, $id_lang, $id_shop),
                     'features' => (object)$features_indexed
                 ];
             }
@@ -484,9 +487,10 @@ class LabelConfigurator extends Module implements WidgetInterface
 
     public function renderWidget($hookName = null, array $configuration = [])
     {
+        $context = Context::getContext();
         $id_category = (int)Tools::getValue('id_category');
         if ($id_category === 0) {
-            $controller = $this->context->controller;
+            $controller = $context->controller;
             if (isset($controller) && method_exists($controller, 'getCategory')) {
                 $category = $controller->getCategory();
                 if (Validate::isLoadedObject($category)) {
@@ -556,7 +560,7 @@ class LabelConfigurator extends Module implements WidgetInterface
             'filters_config_json' => $filters_config,
             'config_base64' => $config_base64,
             'filters_instant' => $instant_val,
-            'ajax_url' => $this->context->link->getModuleLink('labelconfigurator', 'ajax'),
+            'ajax_url' => $context->link->getModuleLink('labelconfigurator', 'ajax'),
             'id_category' => $id_category
         ]);
 
