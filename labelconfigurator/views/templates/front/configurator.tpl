@@ -26,8 +26,8 @@
 <!-- Load Google Material Icons -->
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
-<!-- Inject Configurator Javascript Directly to Guarantee Loading on All Themes -->
-<script src="/modules/labelconfigurator/views/js/configurator.js" defer></script>
+<!-- Inject Configurator Javascript with Timestamp Parameter to Force Cache Busting -->
+<script src="/modules/labelconfigurator/views/js/configurator.js?v={$smarty.now}" defer></script>
 
 <style>
     #configurator-app { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; width: 100%; box-sizing: border-box; }
@@ -78,19 +78,19 @@
     .lc-select-options::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
     /* Custom options inside dropdown */
-    .lc-select-options .pill-item {
+    .lc-select-options .lc-pill-item {
         padding: 8px 12px; border: 1px solid transparent; border-radius: 4px;
         text-align: left; justify-content: flex-start; background: #f8fafc; font-weight: 500;
         cursor: pointer; box-sizing: border-box; width: 100%; display: flex; align-items: center;
     }
-    .lc-select-options .pill-item:hover { background: #f1f5f9; border-color: #cbd5e1; }
-    .lc-select-options .pill-item.active { background: #2c7da0; color: #ffffff; }
+    .lc-select-options .lc-pill-item:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .lc-select-options .lc-pill-item.active { background: #2c7da0; color: #ffffff; }
 
     /* In-Category Search Box inside filter lists */
-    .in-category-search { position: relative; width: 100%; box-sizing: border-box; }
-    .in-category-search input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background: #f8fafc; }
-    .in-category-search input:focus { outline: none; border-color: #2c7da0; background: #fff; }
-    .in-category-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; }
+    .lc-in-category-search { position: relative; width: 100%; box-sizing: border-box; }
+    .lc-in-category-search input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background: #f8fafc; }
+    .lc-in-category-search input:focus { outline: none; border-color: #2c7da0; background: #fff; }
+    .lc-in-category-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; }
 
     /* Grid-based Color Swatch filter option styling */
     .swatch-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 5px 0; }

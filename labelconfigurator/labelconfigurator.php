@@ -341,14 +341,8 @@ class LabelConfigurator extends Module implements WidgetInterface
 
     public function hookActionFrontControllerSetMedia($params)
     {
-        $this->context->controller->registerJavascript(
-            'module-labelconfigurator-js',
-            'modules/'.$this->name.'/views/js/configurator.js',
-            [
-                'position' => 'bottom',
-                'priority' => 150,
-            ]
-        );
+        // Do not register javascript via PrestaShop hook queue to prevent CCC combination and old version caching.
+        // We load it directly in the template with query parameter busting.
     }
 
     public function getCategorySubcategories($id_category, $id_lang)
