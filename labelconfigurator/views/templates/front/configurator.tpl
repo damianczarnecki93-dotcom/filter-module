@@ -1,51 +1,25 @@
 <div id="configurator-app" data-instant="{$filters_instant|intval}" data-ajax-url="{$ajax_url|escape:'html':'UTF-8'}" data-id-category="{$id_category|intval}">
     <!-- Preloaded Data for Client-Side Engine -->
-    <div id="json-data" style="display:none;">{$products_json|escape:'html':'UTF-8'}</div>
-    <div id="config-data" style="display:none;">{$filters_config_json|escape:'html':'UTF-8'}</div>
+    <script type="application/json" id="json-data">{$products_json nofilter}</script>
+    <script type="application/json" id="config-data">{$filters_config_json nofilter}</script>
 
-    <!-- Main Configurator Layout -->
-    <div class="config-layout">
-
-        <!-- Left Sidebar: Dynamic Filters Panel -->
-        <div class="config-sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h3>FILTRY <span class="badge-count header-badge">0</span></h3>
-                <button class="close-sidebar-btn" id="close-sidebar">&times;</button>
-            </div>
-
-            <!-- Dynamic Filters Placeholder -->
-            <div id="dynamic-filters-container">
-                <!-- Built dynamically via Javascript -->
-            </div>
-
-            <!-- Action Buttons (Apply / Reset) -->
-            <div class="sidebar-actions">
-                <button class="btn-apply" id="btn-apply-filters" style="display: none;">Zastosuj filtry</button>
-                <button class="btn-reset" id="btn-reset-all">Wyczyść filtry</button>
-            </div>
+    <!-- Left Sidebar: Dynamic Filters Panel -->
+    <div class="config-sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>FILTRY <span class="badge-count header-badge">0</span></h3>
+            <button class="close-sidebar-btn" id="close-sidebar">&times;</button>
         </div>
 
-        <!-- Main Content Area: Products List (Only visible when standalone, hidden if live-filtering theme cards) -->
-        <div class="config-main">
-            <div class="results-toolbar">
-                <button class="toggle-sidebar-btn" id="toggle-sidebar">
-                    <i class="material-icons">filter_list</i> Filtry
-                </button>
-                <h3 class="results-header">
-                    Znalezione etykiety: <span class="badge-count main-badge">0</span>
-                </h3>
-            </div>
-
-            <div id="product-list" class="product-grid">
-                <!-- Loaded dynamically via JS -->
-            </div>
-
-            <div id="no-results" class="no-results-msg" style="display: none;">
-                <i class="material-icons">info_outline</i>
-                <p>Brak produktów spełniających wybrane kryteria.</p>
-            </div>
+        <!-- Dynamic Filters Placeholder -->
+        <div id="dynamic-filters-container">
+            <!-- Built dynamically via Javascript -->
         </div>
 
+        <!-- Action Buttons (Apply / Reset) -->
+        <div class="sidebar-actions">
+            <button class="btn-apply" id="btn-apply-filters" style="display: none;">Zastosuj filtry</button>
+            <button class="btn-reset" id="btn-reset-all">Wyczyść filtry</button>
+        </div>
     </div>
 </div>
 
@@ -53,14 +27,12 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
 <style>
-    #configurator-app { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 1200px; margin: 20px auto; padding: 0 15px; color: #1e293b; box-sizing: border-box; }
-
-    .config-layout { display: flex; gap: 30px; align-items: flex-start; position: relative; }
+    #configurator-app { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; width: 100%; box-sizing: border-box; }
 
     /* Left Sidebar */
-    .config-sidebar { flex: 0 0 310px; background: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); box-sizing: border-box; }
+    .config-sidebar { width: 100%; background: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); box-sizing: border-box; }
     .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 5px; }
-    .sidebar-header h3 { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+    .sidebar-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
     .close-sidebar-btn { display: none; background: none; border: none; font-size: 28px; color: #64748b; cursor: pointer; }
 
     /* Accordion / Collapsible Filter Group */
@@ -134,57 +106,11 @@
     .btn-apply { width: 100%; padding: 12px; background: #2c7da0; border: none; border-radius: 6px; color: #ffffff; font-weight: 700; cursor: pointer; transition: background 0.2s; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; box-sizing: border-box; text-align: center; }
     .btn-apply:hover { background: #1f5d78; }
 
-    /* Main Product List Column */
-    .config-main { flex: 1; }
-    .results-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .results-header { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 10px; }
     .badge-count { background: #2c7da0; color: white; padding: 4px 14px; border-radius: 20px; font-size: 14px; font-weight: 700; }
     .header-badge { font-size: 12px; padding: 2px 8px; }
 
-    .toggle-sidebar-btn { display: none; background: #2c7da0; border: none; padding: 10px 16px; border-radius: 6px; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; display: none; align-items: center; gap: 6px; }
-    .toggle-sidebar-btn:hover { background: #1f5d78; }
-
-    /* Product Cards Grid */
-    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; }
-
-    /* Card Styling */
-    .product-card {
-        display: flex; flex-direction: column; justify-content: space-between;
-        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
-        padding: 20px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02); transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-        box-sizing: border-box; overflow: hidden;
-    }
-    .product-card:hover { border-color: #61b3d6; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08); transform: translateY(-3px); }
-
-    .card-img-wrapper { height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; border-radius: 8px; overflow: hidden; background: #f8fafc; }
-    .card-img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.3s; }
-    .product-card:hover .card-img { transform: scale(1.05); }
-
-    .card-title { font-weight: 700; font-size: 14px; color: #1e293b; margin: 0 0 10px; line-height: 1.4; height: 40px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; }
-
-    .card-price { font-size: 17px; font-weight: 800; color: #2c7da0; margin-bottom: 12px; text-align: left; }
-
-    .card-details { margin-bottom: 18px; border-top: 1px solid #f1f5f9; padding-top: 12px; }
-    .card-details p { margin: 6px 0; font-size: 12px; color: #64748b; display: flex; justify-content: space-between; }
-    .card-details p span { font-weight: 600; color: #334155; }
-
-    /* CTA button */
-    .card-btn {
-        display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px;
-        background: #2c7da0; color: #fff; text-decoration: none; border-radius: 6px;
-        font-weight: 700; font-size: 13px; transition: background 0.2s; box-sizing: border-box; border: none; cursor: pointer;
-    }
-    .card-btn:hover { background: #1f5d78; color: #fff; text-decoration: none; }
-    .card-btn i { font-size: 18px; }
-
-    /* Empty state */
-    .no-results-msg { padding: 40px 20px; text-align: center; color: #64748b; background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1; margin-top: 20px; }
-    .no-results-msg i { font-size: 48px; color: #94a3b8; margin-bottom: 10px; }
-    .no-results-msg p { font-size: 16px; font-weight: 500; margin: 0; }
-
     /* Media queries for Responsiveness */
     @media (max-width: 991px) {
-        .toggle-sidebar-btn { display: flex; }
         .config-sidebar {
             position: fixed; top: 0; left: -350px; width: 310px; height: 100%;
             z-index: 9999; overflow-y: auto; transition: left 0.3s ease; box-shadow: 4px 0 15px rgba(0,0,0,0.1);

@@ -9,8 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let filtersConfig = [];
 
     try {
-        products = JSON.parse(rawDataEl.textContent);
-        filtersConfig = JSON.parse(rawConfigEl.textContent);
+        products = JSON.parse(rawDataEl.textContent || rawDataEl.innerHTML);
+        filtersConfig = JSON.parse(rawConfigEl.textContent || rawConfigEl.innerHTML);
     } catch (e) {
         console.error("Failed to parse product or config JSON:", e);
         return;
@@ -397,6 +397,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const minValInput = document.getElementById(`val-${id}-min`);
         const maxValInput = document.getElementById(`val-${id}-max`);
 
+        if (!minRange || !maxRange || !minValInput || !maxValInput) return;
+
         const stepFormatter = (val) => isDecimal ? val.toFixed(2) : Math.round(val);
 
         minRange.addEventListener('input', () => {
@@ -449,47 +451,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const minWValInput = document.getElementById(`val-${id}-w-min`);
         const maxWValInput = document.getElementById(`val-${id}-w-max`);
 
-        minWRange.addEventListener('input', () => {
-            let val = parseFloat(minWRange.value);
-            if (val > parseFloat(maxWRange.value)) {
-                val = parseFloat(maxWRange.value);
+        if (minWRange && maxWRange && minWValInput && maxWValInput) {
+            minWRange.addEventListener('input', () => {
+                let val = parseFloat(minWRange.value);
+                if (val > parseFloat(maxWRange.value)) {
+                    val = parseFloat(maxWRange.value);
+                    minWRange.value = val;
+                }
+                state.currentMinW = val;
+                minWValInput.value = Math.round(val);
+                onFilterInput();
+            });
+
+            maxWRange.addEventListener('input', () => {
+                let val = parseFloat(maxWRange.value);
+                if (val < parseFloat(minWRange.value)) {
+                    val = parseFloat(minWRange.value);
+                    maxWRange.value = val;
+                }
+                state.currentMaxW = val;
+                maxWValInput.value = Math.round(val);
+                onFilterInput();
+            });
+
+            minWValInput.addEventListener('change', () => {
+                let val = parseFloat(minWValInput.value) || state.minW;
+                if (val < state.minW) val = state.minW;
+                if (val > state.currentMaxW) val = state.currentMaxW;
+                minWValInput.value = Math.round(val);
                 minWRange.value = val;
-            }
-            state.currentMinW = val;
-            minWValInput.value = Math.round(val);
-            onFilterInput();
-        });
+                state.currentMinW = val;
+                onFilterInput();
+            });
 
-        maxWRange.addEventListener('input', () => {
-            let val = parseFloat(maxWRange.value);
-            if (val < parseFloat(minWRange.value)) {
-                val = parseFloat(minWRange.value);
+            maxWValInput.addEventListener('change', () => {
+                let val = parseFloat(maxWValInput.value) || state.maxW;
+                if (val > state.maxW) val = state.maxW;
+                if (val < state.currentMinW) val = state.currentMinW;
+                maxWValInput.value = Math.round(val);
                 maxWRange.value = val;
-            }
-            state.currentMaxW = val;
-            maxWValInput.value = Math.round(val);
-            onFilterInput();
-        });
-
-        minWValInput.addEventListener('change', () => {
-            let val = parseFloat(minWValInput.value) || state.minW;
-            if (val < state.minW) val = state.minW;
-            if (val > state.currentMaxW) val = state.currentMaxW;
-            minWValInput.value = Math.round(val);
-            minWRange.value = val;
-            state.currentMinW = val;
-            onFilterInput();
-        });
-
-        maxWValInput.addEventListener('change', () => {
-            let val = parseFloat(maxWValInput.value) || state.maxW;
-            if (val > state.maxW) val = state.maxW;
-            if (val < state.currentMinW) val = state.currentMinW;
-            maxWValInput.value = Math.round(val);
-            maxWRange.value = val;
-            state.currentMaxW = val;
-            onFilterInput();
-        });
+                state.currentMaxW = val;
+                onFilterInput();
+            });
+        }
 
         // Height
         const minHRange = document.getElementById(`min-${id}-h`);
@@ -497,47 +501,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const minHValInput = document.getElementById(`val-${id}-h-min`);
         const maxHValInput = document.getElementById(`val-${id}-h-max`);
 
-        minHRange.addEventListener('input', () => {
-            let val = parseFloat(minHRange.value);
-            if (val > parseFloat(maxHRange.value)) {
-                val = parseFloat(maxHRange.value);
+        if (minHRange && maxHRange && minHValInput && maxHValInput) {
+            minHRange.addEventListener('input', () => {
+                let val = parseFloat(minHRange.value);
+                if (val > parseFloat(maxHRange.value)) {
+                    val = parseFloat(maxHRange.value);
+                    minHRange.value = val;
+                }
+                state.currentMinH = val;
+                minHValInput.value = Math.round(val);
+                onFilterInput();
+            });
+
+            maxHRange.addEventListener('input', () => {
+                let val = parseFloat(maxHRange.value);
+                if (val < parseFloat(minHRange.value)) {
+                    val = parseFloat(minHRange.value);
+                    maxHRange.value = val;
+                }
+                state.currentMaxH = val;
+                maxHValInput.value = Math.round(val);
+                onFilterInput();
+            });
+
+            minHValInput.addEventListener('change', () => {
+                let val = parseFloat(minHValInput.value) || state.minH;
+                if (val < state.minH) val = state.minH;
+                if (val > state.currentMaxH) val = state.currentMaxH;
+                minHValInput.value = Math.round(val);
                 minHRange.value = val;
-            }
-            state.currentMinH = val;
-            minHValInput.value = Math.round(val);
-            onFilterInput();
-        });
+                state.currentMinH = val;
+                onFilterInput();
+            });
 
-        maxHRange.addEventListener('input', () => {
-            let val = parseFloat(maxHRange.value);
-            if (val < parseFloat(minHRange.value)) {
-                val = parseFloat(minHRange.value);
+            maxHValInput.addEventListener('change', () => {
+                let val = parseFloat(maxHValInput.value) || state.maxH;
+                if (val > state.maxH) val = state.maxH;
+                if (val < state.currentMinH) val = state.currentMinH;
+                maxHValInput.value = Math.round(val);
                 maxHRange.value = val;
-            }
-            state.currentMaxH = val;
-            maxHValInput.value = Math.round(val);
-            onFilterInput();
-        });
-
-        minHValInput.addEventListener('change', () => {
-            let val = parseFloat(minHValInput.value) || state.minH;
-            if (val < state.minH) val = state.minH;
-            if (val > state.currentMaxH) val = state.currentMaxH;
-            minHValInput.value = Math.round(val);
-            minHRange.value = val;
-            state.currentMinH = val;
-            onFilterInput();
-        });
-
-        maxHValInput.addEventListener('change', () => {
-            let val = parseFloat(maxHValInput.value) || state.maxH;
-            if (val > state.maxH) val = state.maxH;
-            if (val < state.currentMinH) val = state.currentMinH;
-            maxHValInput.value = Math.round(val);
-            maxHRange.value = val;
-            state.currentMaxH = val;
-            onFilterInput();
-        });
+                state.currentMaxH = val;
+                onFilterInput();
+            });
+        }
     }
 
     function setupSwatchEvents(id, state) {
@@ -565,6 +571,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById(searchInputId);
         const container = document.getElementById(containerId);
 
+        if (!searchInput || !container) return;
+
         state.searchTerm = '';
 
         searchInput.addEventListener('input', () => {
@@ -576,6 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePillsRender(id, state, container) {
+        if (!container) return;
         container.innerHTML = '';
 
         const visibleOptions = state.allOptions.filter(opt => {
@@ -768,10 +777,10 @@ document.addEventListener('DOMContentLoaded', () => {
         productListContainer.innerHTML = '';
 
         if (items.length === 0) {
-            noResultsMsg.style.display = 'block';
+            if (noResultsMsg) noResultsMsg.style.display = 'block';
             return;
         }
-        noResultsMsg.style.display = 'none';
+        if (noResultsMsg) noResultsMsg.style.display = 'none';
 
         items.forEach(p => {
             const card = document.createElement('div');
