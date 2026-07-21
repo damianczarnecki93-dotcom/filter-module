@@ -182,12 +182,11 @@ class LabelConfigurator extends Module implements WidgetInterface
 
         // Load correct config
         $config_key = $id_category_filter > 0 ? 'LC_FILTERS_CONFIG_' . $id_category_filter : 'LC_FILTERS_CONFIG';
-        $current_config = json_decode(Configuration::get($config_key), true);
-
-        // If empty and category-specific, fallback to global to edit/populate
-        if (empty($current_config) && $id_category_filter > 0) {
-            $current_config = json_decode(Configuration::get('LC_FILTERS_CONFIG'), true);
+        $current_config_raw = Configuration::get($config_key);
+        if ($current_config_raw === '[]' || empty($current_config_raw)) {
+            $current_config_raw = Configuration::get('LC_FILTERS_CONFIG');
         }
+        $current_config = json_decode($current_config_raw, true);
 
         if (!is_array($current_config)) {
             $current_config = [];
@@ -382,22 +381,35 @@ class LabelConfigurator extends Module implements WidgetInterface
             }
         }
 
-        $category_join = '';
-        $category_where = '';
+        $products_raw = [];
         if ($id_category > 0) {
-            $categories_pool = $this->getCategorySubcategories($id_category, $id_lang);
-            $category_join = " JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product) ";
-            $category_where = " AND cp.id_category IN (" . implode(',', array_map('intval', $categories_pool)) . ") ";
+            $category = new Category($id_category, $id_lang);
+            if (Validate::isLoadedObject($category)) {
+                // Fetch up to 300 products in one call using core logic
+                $products_raw = $category->getProducts($id_lang, 1, 300, 'name', 'asc', false, true);
+            }
         }
 
-        $sql = "SELECT p.id_product, pl.name, pl.link_rewrite
-                FROM "._DB_PREFIX_."product p
-                JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang " . Shop::addSqlRestrictionOnLang('pl') . ")
-                JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
-                $category_join
-                WHERE ps.active = 1 $category_where LIMIT 300";
+        // If no products found via category, fallback to recursive SQL query or active catalog
+        if (empty($products_raw)) {
+            $category_join = '';
+            $category_where = '';
+            if ($id_category > 0) {
+                $categories_pool = $this->getCategorySubcategories($id_category, $id_lang);
+                $category_join = " JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product) ";
+                $category_where = " AND cp.id_category IN (" . implode(',', array_map('intval', $categories_pool)) . ") ";
+            }
 
-        $products_raw = Db::getInstance()->executeS($sql);
+            $sql = "SELECT p.id_product, pl.name, pl.link_rewrite
+                    FROM "._DB_PREFIX_."product p
+                    JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang " . Shop::addSqlRestrictionOnLang('pl') . ")
+                    JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
+                    $category_join
+                    WHERE ps.active = 1 $category_where LIMIT 300";
+
+            $products_raw = Db::getInstance()->executeS($sql);
+        }
+
         $results = [];
 
         if (!empty($products_raw)) {
@@ -433,13 +445,17 @@ class LabelConfigurator extends Module implements WidgetInterface
             // 3. Construct products list with cached variables
             foreach ($products_raw as $p) {
                 $id_product = (int)$p['id_product'];
-                $link_rewrite = $p['link_rewrite'];
+                $name = isset($p['name']) ? $p['name'] : '';
+                $link_rewrite = isset($p['link_rewrite']) ? $p['link_rewrite'] : '';
 
                 $features_indexed = isset($features_bulk[$id_product]) ? $features_bulk[$id_product] : [];
 
                 // Get cover image
                 $image_url = '';
-                if (isset($images_bulk[$id_product])) {
+                $id_image = isset($p['id_image']) ? (int)$p['id_image'] : 0;
+                if ($id_image > 0) {
+                    $image_url = $this->context->link->getImageLink($link_rewrite, $id_image, 'home_default');
+                } elseif (isset($images_bulk[$id_product])) {
                     $image_url = $this->context->link->getImageLink($link_rewrite, $images_bulk[$id_product], 'home_default');
                 }
 
@@ -449,7 +465,7 @@ class LabelConfigurator extends Module implements WidgetInterface
 
                 $results[] = [
                     'id_product' => $id_product,
-                    'name' => $p['name'],
+                    'name' => $name,
                     'price' => $price,
                     'formatted_price' => $formatted_price,
                     'image' => $image_url,
@@ -480,9 +496,15 @@ class LabelConfigurator extends Module implements WidgetInterface
         $filters_config = false;
         if ($id_category > 0) {
             $filters_config = Configuration::get('LC_FILTERS_CONFIG_' . $id_category);
+            if ($filters_config === '[]' || empty($filters_config)) {
+                $filters_config = false;
+            }
         }
         if (!$filters_config) {
             $filters_config = Configuration::get('LC_FILTERS_CONFIG');
+            if ($filters_config === '[]' || empty($filters_config)) {
+                $filters_config = false;
+            }
         }
         if (!$filters_config) {
             $default_config = [
