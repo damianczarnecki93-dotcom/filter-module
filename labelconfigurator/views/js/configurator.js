@@ -134,28 +134,38 @@ document.addEventListener('DOMContentLoaded', () => {
         return color;
     }
 
-    // Helper: Extract Product ID from theme miniature card
+    // Helper: Extract Product ID from theme miniature card with extreme robustness
     function getProductIdFromCard(cardEl) {
         // 1. Check data-id-product or data-id attributes
-        let id = cardEl.getAttribute('data-id-product') || cardEl.getAttribute('data-id');
+        let id = cardEl.getAttribute('data-id-product') || cardEl.getAttribute('data-id') || cardEl.getAttribute('data-product-id');
         if (id && !isNaN(id)) return parseInt(id);
 
         // 2. Search inside class list (e.g. id-product-123 or product-123)
         for (const cls of cardEl.classList) {
-            const match = cls.match(/(?:id-product|product)-(\d+)/i);
+            const match = cls.match(/(?:id_product|id-product|product-id|product)-(\d+)/i);
             if (match) return parseInt(match[1]);
         }
 
-        // 3. Search inside input fields
-        const idInput = cardEl.querySelector('input[name="id_product"]');
+        // 3. Search inside input fields or forms
+        const idInput = cardEl.querySelector('input[name="id_product"]') || cardEl.querySelector('input[name="id"]');
         if (idInput && idInput.value && !isNaN(idInput.value)) return parseInt(idInput.value);
 
-        // 4. Search inside anchor links (e.g. href="/123-product-name" or "id_product=123")
+        const form = cardEl.querySelector('form[action*="cart"]');
+        if (form) {
+            const action = form.getAttribute('action');
+            const matchAction = action.match(/id_product=(\d+)/i) || action.match(/id=(\d+)/i);
+            if (matchAction) return parseInt(matchAction[1]);
+        }
+
+        // 4. Search inside anchor links (e.g. href="/123-product-name")
         const anchors = cardEl.querySelectorAll('a[href]');
         for (const a of anchors) {
             const href = a.getAttribute('href');
             if (href) {
-                const matchId = href.match(/id_product=(\d+)/i) || href.match(/\/(\d+)-[a-zA-Z0-9-]+\.html/i) || href.match(/\/(\d+)-/i);
+                const matchId = href.match(/id_product=(\d+)/i) ||
+                                href.match(/\/(\d+)-/i) ||
+                                href.match(/-(\d+)\.html/i) ||
+                                href.match(/-(\d+)$/i);
                 if (matchId) return parseInt(matchId[1]);
             }
         }
@@ -408,9 +418,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!minRange || !maxRange || !minValInput || !maxValInput) return;
 
+        // Ensure proper overlapping thumbs interaction
+        minRange.style.pointerEvents = 'auto';
+        maxRange.style.pointerEvents = 'auto';
+
+        function updateRangeOverlap(e) {
+            if (e.target === minRange) {
+                minRange.style.zIndex = "10";
+                maxRange.style.zIndex = "9";
+            } else {
+                minRange.style.zIndex = "9";
+                maxRange.style.zIndex = "10";
+            }
+        }
+
         const stepFormatter = (val) => isDecimal ? val.toFixed(2) : Math.round(val);
 
-        minRange.addEventListener('input', () => {
+        minRange.addEventListener('input', (e) => {
+            updateRangeOverlap(e);
             let val = parseFloat(minRange.value);
             if (val > parseFloat(maxRange.value)) {
                 val = parseFloat(maxRange.value);
@@ -421,7 +446,8 @@ document.addEventListener('DOMContentLoaded', () => {
             onFilterInput();
         });
 
-        maxRange.addEventListener('input', () => {
+        maxRange.addEventListener('input', (e) => {
+            updateRangeOverlap(e);
             let val = parseFloat(maxRange.value);
             if (val < parseFloat(minRange.value)) {
                 val = parseFloat(minRange.value);
@@ -461,7 +487,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxWValInput = document.getElementById(`val-${id}-w-max`);
 
         if (minWRange && maxWRange && minWValInput && maxWValInput) {
-            minWRange.addEventListener('input', () => {
+            minWRange.style.pointerEvents = 'auto';
+            maxWRange.style.pointerEvents = 'auto';
+
+            minWRange.addEventListener('input', (e) => {
+                minWRange.style.zIndex = "10";
+                maxWRange.style.zIndex = "9";
                 let val = parseFloat(minWRange.value);
                 if (val > parseFloat(maxWRange.value)) {
                     val = parseFloat(maxWRange.value);
@@ -472,7 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 onFilterInput();
             });
 
-            maxWRange.addEventListener('input', () => {
+            maxWRange.addEventListener('input', (e) => {
+                minWRange.style.zIndex = "9";
+                maxWRange.style.zIndex = "10";
                 let val = parseFloat(maxWRange.value);
                 if (val < parseFloat(minWRange.value)) {
                     val = parseFloat(minWRange.value);
@@ -511,7 +544,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxHValInput = document.getElementById(`val-${id}-h-max`);
 
         if (minHRange && maxHRange && minHValInput && maxHValInput) {
-            minHRange.addEventListener('input', () => {
+            minHRange.style.pointerEvents = 'auto';
+            maxHRange.style.pointerEvents = 'auto';
+
+            minHRange.addEventListener('input', (e) => {
+                minHRange.style.zIndex = "10";
+                maxHRange.style.zIndex = "9";
                 let val = parseFloat(minHRange.value);
                 if (val > parseFloat(maxHRange.value)) {
                     val = parseFloat(maxHRange.value);
@@ -522,7 +560,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 onFilterInput();
             });
 
-            maxHRange.addEventListener('input', () => {
+            maxHRange.addEventListener('input', (e) => {
+                minHRange.style.zIndex = "9";
+                maxHRange.style.zIndex = "10";
                 let val = parseFloat(maxHRange.value);
                 if (val < parseFloat(minHRange.value)) {
                     val = parseFloat(minHRange.value);
@@ -574,121 +614,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             onFilterInput();
         });
-    }
-
-    function setupPillsEvents(id, state, searchInputId, containerId, trigger) {
-        const searchInput = document.getElementById(searchInputId);
-        const container = document.getElementById(containerId);
-
-        if (!searchInput || !container) return;
-
-        state.searchTerm = '';
-
-        searchInput.addEventListener('input', () => {
-            state.searchTerm = searchInput.value.toLowerCase().trim();
-            updatePillsRender(id, state, container, trigger);
-        });
-
-        updatePillsRender(id, state, container, trigger);
-    }
-
-    function updatePillsRender(id, state, container, trigger) {
-        if (!container) return;
-        container.innerHTML = '';
-
-        const visibleOptions = state.allOptions.filter(opt => {
-            return opt.toLowerCase().includes(state.searchTerm);
-        });
-
-        if (visibleOptions.length === 0) {
-            container.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:10px 0;">Brak pasujących opcji</div>';
-            return;
-        }
-
-        visibleOptions.forEach(opt => {
-            const pill = document.createElement('div');
-            pill.className = 'lc-pill-item';
-            if (state.selected.includes(opt)) {
-                pill.classList.add('active');
-            }
-
-            const count = countProductsForOption(id, opt);
-            pill.innerHTML = `${opt} <span style="font-weight:400;margin-left:4px;opacity:0.75;">(${count})</span>`;
-
-            pill.addEventListener('click', () => {
-                pill.classList.toggle('active');
-                if (pill.classList.contains('active')) {
-                    state.selected.push(opt);
-                } else {
-                    const idx = state.selected.indexOf(opt);
-                    if (idx > -1) state.selected.splice(idx, 1);
-                }
-
-                // Update Trigger Text dynamically
-                if (trigger) {
-                    const triggerText = trigger.querySelector('.lc-trigger-text');
-                    if (triggerText) {
-                        if (state.selected.length === 0) {
-                            triggerText.textContent = 'Wybierz opcje...';
-                        } else {
-                            triggerText.textContent = state.selected.join(', ');
-                        }
-                    }
-                }
-
-                onFilterInput();
-            });
-
-            container.appendChild(pill);
-        });
-    }
-
-    function updateAllCheckboxesPills() {
-        for (const [fid, state] of Object.entries(filterStates)) {
-            if (state.type === 'checkboxes') {
-                const label = filtersConfig.find(f => f.id == fid || f.id === fid)?.label || '';
-                const isColor = /kolor|color|barwa/i.test(label);
-                if (!isColor) {
-                    const container = document.getElementById(`list-${fid}`);
-                    const trigger = document.getElementById(`trigger-${fid}`);
-                    if (container) {
-                        updatePillsRender(fid, state, container, trigger);
-                    }
-                }
-            }
-        }
-    }
-
-    function countProductsForOption(targetFid, optValue) {
-        return products.filter(p => {
-            for (const [fid, state] of Object.entries(filterStates)) {
-                if (fid == targetFid) {
-                    const featVal = p.features && p.features['f_' + fid];
-                    if (featVal !== optValue) {
-                        return false;
-                    }
-                } else {
-                    if (fid === 'price') {
-                        if (p.price < state.currentMin || p.price > state.currentMax) return false;
-                    } else if (state.type === 'slider') {
-                        const featVal = p.features && p.features['f_' + fid];
-                        const num = parseNumber(featVal);
-                        if (num < state.currentMin || num > state.currentMax) return false;
-                    } else if (state.type === 'size_split') {
-                        const featVal = p.features && p.features['f_' + fid];
-                        const size = parseSizeSplit(featVal);
-                        if (size.w < state.currentMinW || size.w > state.currentMaxW ||
-                            size.h < state.currentMinH || size.h > state.currentMaxH) return false;
-                    } else if (state.type === 'checkboxes') {
-                        if (state.selected.length > 0) {
-                            const featVal = p.features && p.features['f_' + fid];
-                            if (!featVal || !state.selected.includes(featVal)) return false;
-                        }
-                    }
-                }
-            }
-            return true;
-        }).length;
     }
 
     // Dynamic Server-Side AJAX Filtering
@@ -820,6 +745,89 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function setupPillsEvents(id, state, searchInputId, containerId, trigger) {
+        const searchInput = document.getElementById(searchInputId);
+        const container = document.getElementById(containerId);
+
+        if (!searchInput || !container) return;
+
+        state.searchTerm = '';
+
+        searchInput.addEventListener('input', () => {
+            state.searchTerm = searchInput.value.toLowerCase().trim();
+            updatePillsRender(id, state, container, trigger);
+        });
+
+        updatePillsRender(id, state, container, trigger);
+    }
+
+    function updatePillsRender(id, state, container, trigger) {
+        if (!container) return;
+        container.innerHTML = '';
+
+        const visibleOptions = state.allOptions.filter(opt => {
+            return opt.toLowerCase().includes(state.searchTerm);
+        });
+
+        if (visibleOptions.length === 0) {
+            container.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:10px 0;">Brak pasujących opcji</div>';
+            return;
+        }
+
+        visibleOptions.forEach(opt => {
+            const pill = document.createElement('div');
+            pill.className = 'lc-pill-item';
+            if (state.selected.includes(opt)) {
+                pill.classList.add('active');
+            }
+
+            const count = countProductsForOption(id, opt);
+            pill.innerHTML = `${opt} <span style="font-weight:400;margin-left:4px;opacity:0.75;">(${count})</span>`;
+
+            pill.addEventListener('click', () => {
+                pill.classList.toggle('active');
+                if (pill.classList.contains('active')) {
+                    state.selected.push(opt);
+                } else {
+                    const idx = state.selected.indexOf(opt);
+                    if (idx > -1) state.selected.splice(idx, 1);
+                }
+
+                // Update Trigger Text dynamically
+                if (trigger) {
+                    const triggerText = trigger.querySelector('.lc-trigger-text');
+                    if (triggerText) {
+                        if (state.selected.length === 0) {
+                            triggerText.textContent = 'Wybierz opcje...';
+                        } else {
+                            triggerText.textContent = state.selected.join(', ');
+                        }
+                    }
+                }
+
+                onFilterInput();
+            });
+
+            container.appendChild(pill);
+        });
+    }
+
+    function updateAllCheckboxesPills() {
+        for (const [fid, state] of Object.entries(filterStates)) {
+            if (state.type === 'checkboxes') {
+                const label = filtersConfig.find(f => f.id == fid || f.id === fid)?.label || '';
+                const isColor = /kolor|color|barwa/i.test(label);
+                if (!isColor) {
+                    const container = document.getElementById(`list-${fid}`);
+                    const trigger = document.getElementById(`trigger-${fid}`);
+                    if (container) {
+                        updatePillsRender(fid, state, container, trigger);
+                    }
+                }
+            }
+        }
+    }
+
     btnResetAll.addEventListener('click', () => {
         buildDynamicFilters();
         applyFilters();
@@ -846,6 +854,9 @@ document.addEventListener('DOMContentLoaded', () => {
             t.classList.remove('open');
         });
     });
+
+    // Try to detect theme products on the category page first
+    detectThemeProducts();
 
     // Initial builder execution
     buildDynamicFilters();

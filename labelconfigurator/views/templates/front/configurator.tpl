@@ -1,7 +1,7 @@
 <div id="configurator-app" data-instant="{$filters_instant|intval}" data-ajax-url="{$ajax_url|escape:'html':'UTF-8'}" data-id-category="{$id_category|intval}">
-    <!-- Preloaded Data for Client-Side Engine -->
-    <div id="json-data" style="display:none;">{$products_json nofilter}</div>
-    <div id="config-data" style="display:none;">{$filters_config_json nofilter}</div>
+    <!-- Preloaded Data for Client-Side Engine encoded as Base64 to prevent HTML corruption -->
+    <div id="json-data" style="display:none;">{$products_base64}</div>
+    <div id="config-data" style="display:none;">{$config_base64}</div>
 
     <!-- Left Sidebar: Dynamic Filters Panel -->
     <div class="config-sidebar" id="sidebar">
@@ -87,10 +87,10 @@
     .lc-select-options .lc-pill-item.active { background: #2c7da0; color: #ffffff; }
 
     /* In-Category Search Box inside filter lists */
-    .lc-in-category-search { position: relative; width: 100%; box-sizing: border-box; }
-    .lc-in-category-search input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background: #f8fafc; }
-    .lc-in-category-search input:focus { outline: none; border-color: #2c7da0; background: #fff; }
-    .lc-in-category-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; }
+    .in-category-search { position: relative; width: 100%; box-sizing: border-box; }
+    .in-category-search input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background: #f8fafc; }
+    .in-category-search input:focus { outline: none; border-color: #2c7da0; background: #fff; }
+    .in-category-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; }
 
     /* Grid-based Color Swatch filter option styling */
     .swatch-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 5px 0; }
@@ -110,7 +110,7 @@
     .manual-input[type=number] { -moz-appearance: textfield; }
 
     .dual-slider { position: relative; height: 16px; margin: 10px 0 15px; }
-    .dual-slider input[type="range"] { position: absolute; width: 100%; top: -4px; left: 0; -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; margin: 0; }
+    .dual-slider input[type="range"] { position: absolute; width: 100%; top: -4px; left: 0; -webkit-appearance: none; appearance: none; background: transparent; pointer-events: auto; margin: 0; }
     .dual-slider::before { content: ''; position: absolute; top: 4px; left: 0; right: 0; height: 6px; background: #e2e8f0; border-radius: 3px; z-index: 1; }
     .dual-slider input[type="range"]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 18px; height: 18px; background: #2c7da0; border-radius: 50%; cursor: pointer; position: relative; z-index: 2; margin-top: -6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 2px solid #fff; transition: background 0.15s; }
     .dual-slider input[type="range"]::-webkit-slider-thumb:hover { background: #1f5d78; }
