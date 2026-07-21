@@ -1,7 +1,7 @@
 <div id="configurator-app" data-instant="{$filters_instant|intval}" data-ajax-url="{$ajax_url|escape:'html':'UTF-8'}" data-id-category="{$id_category|intval}">
-    <!-- Preloaded Data for Client-Side Engine encoded as Base64 -->
-    <div id="json-data" style="display:none;">{$products_base64}</div>
-    <div id="config-data" style="display:none;">{$config_base64}</div>
+    <!-- Preloaded Data for Client-Side Engine -->
+    <div id="json-data" style="display:none;">{$products_json nofilter}</div>
+    <div id="config-data" style="display:none;">{$filters_config_json nofilter}</div>
 
     <!-- Left Sidebar: Dynamic Filters Panel -->
     <div class="config-sidebar" id="sidebar">
@@ -25,6 +25,9 @@
 
 <!-- Load Google Material Icons -->
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+<!-- Inject Configurator Javascript Directly to Guarantee Loading on All Themes -->
+<script src="/modules/labelconfigurator/views/js/configurator.js" defer></script>
 
 <style>
     #configurator-app { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; width: 100%; box-sizing: border-box; }

@@ -384,25 +384,29 @@ class LabelConfigurator extends Module implements WidgetInterface
         $products_raw = [];
         if ($id_category > 0) {
             $categories_pool = $this->getCategorySubcategories($id_category, $id_lang);
-            foreach ($categories_pool as $cat_id) {
-                $cat = new Category($cat_id, $id_lang);
-                if (Validate::isLoadedObject($cat)) {
-                    // Fetch up to 300 products in one call using core logic
-                    $cat_products = $cat->getProducts($id_lang, 1, 300, 'name', 'asc', false, true);
-                    if (!empty($cat_products)) {
-                        $products_raw = array_merge($products_raw, $cat_products);
-                    }
-                }
-            }
-            // Remove duplicates
-            $unique_products = [];
-            foreach ($products_raw as $p) {
-                $unique_products[$p['id_product']] = $p;
-            }
-            $products_raw = array_values($unique_products);
-        } else {
-            // Global context fallback
-            $products_raw = Product::getProducts($id_lang, 0, 300, 'name', 'asc', false, true);
+
+            // Ultra-robust single query to fetch all active products across categories pool
+            // This is immune to both category group check failures and multi-shop language inconsistencies
+            $category_list_sql = implode(',', array_map('intval', $categories_pool));
+            $sql = "SELECT DISTINCT p.id_product, pl.name, pl.link_rewrite
+                    FROM "._DB_PREFIX_."product p
+                    JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
+                    JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
+                    JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product)
+                    WHERE ps.active = 1 AND cp.id_category IN ($category_list_sql)
+                    LIMIT 300";
+
+            $products_raw = Db::getInstance()->executeS($sql);
+        }
+
+        // If no products found via category, fallback to global catalog active products
+        if (empty($products_raw)) {
+            $sql = "SELECT DISTINCT p.id_product, pl.name, pl.link_rewrite
+                    FROM "._DB_PREFIX_."product p
+                    JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
+                    JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
+                    WHERE ps.active = 1 LIMIT 300";
+            $products_raw = Db::getInstance()->executeS($sql);
         }
 
         $results = [];
@@ -447,10 +451,7 @@ class LabelConfigurator extends Module implements WidgetInterface
 
                 // Get cover image
                 $image_url = '';
-                $id_image = isset($p['id_image']) ? (int)$p['id_image'] : 0;
-                if ($id_image > 0) {
-                    $image_url = $this->context->link->getImageLink($link_rewrite, $id_image, 'home_default');
-                } elseif (isset($images_bulk[$id_product])) {
+                if (isset($images_bulk[$id_product])) {
                     $image_url = $this->context->link->getImageLink($link_rewrite, $images_bulk[$id_product], 'home_default');
                 }
 
@@ -526,12 +527,9 @@ class LabelConfigurator extends Module implements WidgetInterface
         }
         $instant_val = (bool)$instant_val;
 
-        $products_base64 = base64_encode(json_encode($results));
-        $config_base64 = base64_encode($filters_config);
-
         $this->smarty->assign([
-            'products_base64' => $products_base64,
-            'config_base64' => $config_base64,
+            'products_json' => json_encode($results),
+            'filters_config_json' => $filters_config,
             'filters_instant' => $instant_val,
             'ajax_url' => $this->context->link->getModuleLink('labelconfigurator', 'ajax'),
             'id_category' => $id_category

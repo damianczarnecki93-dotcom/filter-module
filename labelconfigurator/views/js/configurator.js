@@ -5,20 +5,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!rawDataEl || !rawConfigEl || !appEl) return;
 
+    // Helper: decode HTML entities (handles &quot;, &amp;, etc. safely)
+    function decodeHtml(html) {
+        const txt = document.createElement("textarea");
+        txt.innerHTML = html;
+        return txt.value;
+    }
+
+    // Helper: Try multiple formats to parse JSON (direct, HTML decoded, or Base64)
+    function tryParse(rawStr) {
+        if (!rawStr) return [];
+        const str = rawStr.trim();
+
+        try {
+            return JSON.parse(str);
+        } catch (e) {}
+
+        try {
+            const decoded = decodeHtml(str);
+            return JSON.parse(decoded);
+        } catch (e) {}
+
+        try {
+            const decodedBase64 = atob(str);
+            return JSON.parse(decodedBase64);
+        } catch (e) {}
+
+        console.error("Failed to parse JSON string:", str);
+        return [];
+    }
+
     let products = [];
     let filtersConfig = [];
 
-    try {
-        // Decode Base64 safely
-        const decodedProducts = atob(rawDataEl.textContent.trim());
-        const decodedConfig = atob(rawConfigEl.textContent.trim());
-
-        products = JSON.parse(decodedProducts);
-        filtersConfig = JSON.parse(decodedConfig);
-    } catch (e) {
-        console.error("Failed to parse product or config JSON from Base64:", e);
-        return;
-    }
+    products = tryParse(rawDataEl.textContent || rawDataEl.innerHTML);
+    filtersConfig = tryParse(rawConfigEl.textContent || rawConfigEl.innerHTML);
 
     // Bulletproof conversion to Array in case of PHP JSON associative array / object serialization
     if (products && !Array.isArray(products)) {
