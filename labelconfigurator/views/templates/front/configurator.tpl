@@ -1,4 +1,4 @@
-<div id="configurator-app">
+<div id="configurator-app" data-instant="{$filters_instant|intval}" data-ajax-url="{$ajax_url|escape:'html':'UTF-8'}" data-id-category="{$id_category|intval}">
     <!-- Preloaded Data for Client-Side Engine -->
     <div id="json-data" style="display:none;">{$products_json|escape:'html':'UTF-8'}</div>
     <div id="config-data" style="display:none;">{$filters_config_json|escape:'html':'UTF-8'}</div>
@@ -9,7 +9,7 @@
         <!-- Left Sidebar: Dynamic Filters Panel -->
         <div class="config-sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h3>FILTRY</h3>
+                <h3>FILTRY <span class="badge-count header-badge">0</span></h3>
                 <button class="close-sidebar-btn" id="close-sidebar">&times;</button>
             </div>
 
@@ -18,18 +18,21 @@
                 <!-- Built dynamically via Javascript -->
             </div>
 
-            <!-- Reset Filters -->
-            <button class="btn-reset" id="btn-reset-all">Wyczyść filtry</button>
+            <!-- Action Buttons (Apply / Reset) -->
+            <div class="sidebar-actions">
+                <button class="btn-apply" id="btn-apply-filters" style="display: none;">Zastosuj filtry</button>
+                <button class="btn-reset" id="btn-reset-all">Wyczyść filtry</button>
+            </div>
         </div>
 
-        <!-- Main Content Area: Products List -->
+        <!-- Main Content Area: Products List (Only visible when standalone, hidden if live-filtering theme cards) -->
         <div class="config-main">
             <div class="results-toolbar">
                 <button class="toggle-sidebar-btn" id="toggle-sidebar">
                     <i class="material-icons">filter_list</i> Filtry
                 </button>
                 <h3 class="results-header">
-                    Znalezione etykiety: <span id="product-count" class="badge-count">0</span>
+                    Znalezione etykiety: <span class="badge-count main-badge">0</span>
                 </h3>
             </div>
 
@@ -57,7 +60,7 @@
     /* Left Sidebar */
     .config-sidebar { flex: 0 0 310px; background: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); box-sizing: border-box; }
     .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 5px; }
-    .sidebar-header h3 { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sidebar-header h3 { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
     .close-sidebar-btn { display: none; background: none; border: none; font-size: 28px; color: #64748b; cursor: pointer; }
 
     /* Accordion / Collapsible Filter Group */
@@ -120,15 +123,23 @@
     .checkbox-filter-list::-webkit-scrollbar-track { background: #f1f5f9; }
     .checkbox-filter-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
+    /* Action Buttons Area */
+    .sidebar-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+
     /* Reset Button */
-    .btn-reset { width: 100%; padding: 12px; background: #f1f5f9; border: none; border-radius: 6px; color: #475569; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s; margin-top: 15px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-reset { width: 100%; padding: 12px; background: #f1f5f9; border: none; border-radius: 6px; color: #475569; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; box-sizing: border-box; text-align: center; }
     .btn-reset:hover { background: #e2e8f0; color: #0f172a; }
+
+    /* Apply Button */
+    .btn-apply { width: 100%; padding: 12px; background: #2c7da0; border: none; border-radius: 6px; color: #ffffff; font-weight: 700; cursor: pointer; transition: background 0.2s; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; box-sizing: border-box; text-align: center; }
+    .btn-apply:hover { background: #1f5d78; }
 
     /* Main Product List Column */
     .config-main { flex: 1; }
     .results-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .results-header { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 10px; }
     .badge-count { background: #2c7da0; color: white; padding: 4px 14px; border-radius: 20px; font-size: 14px; font-weight: 700; }
+    .header-badge { font-size: 12px; padding: 2px 8px; }
 
     .toggle-sidebar-btn { display: none; background: #2c7da0; border: none; padding: 10px 16px; border-radius: 6px; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; display: none; align-items: center; gap: 6px; }
     .toggle-sidebar-btn:hover { background: #1f5d78; }

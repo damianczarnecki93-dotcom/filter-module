@@ -1,7 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     const rawDataEl = document.getElementById('json-data');
     const rawConfigEl = document.getElementById('config-data');
-    if (!rawDataEl || !rawConfigEl) return;
+    const appEl = document.getElementById('configurator-app');
+
+    if (!rawDataEl || !rawConfigEl || !appEl) return;
 
     let products = [];
     let filtersConfig = [];
@@ -16,9 +18,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const dynamicFiltersContainer = document.getElementById('dynamic-filters-container');
     const productListContainer = document.getElementById('product-list');
-    const productCountBadge = document.getElementById('product-count');
     const noResultsMsg = document.getElementById('no-results');
     const btnResetAll = document.getElementById('btn-reset-all');
+    const btnApplyFilters = document.getElementById('btn-apply-filters');
+
+    // Configuration settings
+    const isInstant = appEl.getAttribute('data-instant') === '1';
+    const ajaxUrl = appEl.getAttribute('data-ajax-url') || '';
+    const idCategory = parseInt(appEl.getAttribute('data-id-category')) || 0;
+
+    // Show/hide Apply Button based on configuration
+    if (!isInstant && btnApplyFilters) {
+        btnApplyFilters.style.display = 'block';
+        btnApplyFilters.addEventListener('click', () => {
+            applyFilters();
+        });
+    } else if (btnApplyFilters) {
+        btnApplyFilters.style.display = 'none';
+    }
 
     // Sidebar references for mobile view
     const sidebar = document.getElementById('sidebar');
@@ -96,7 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Attempt to detect and map theme product cards for Live Category Filtering
     function detectThemeProducts() {
-        // Common CSS classes used by PrestaShop 1.7 themes to render products
         const cardSelectors = [
             '.product-miniature',
             '.js-product-miniature',
@@ -122,12 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         mappedThemeCards = [];
         foundCards.forEach(cardEl => {
-            // Get product ID or URL to match
             let productId = cardEl.getAttribute('data-id-product');
             const anchors = cardEl.querySelectorAll('a[href]');
             let hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
 
-            // Find matching product from JSON array
             let matchedProduct = null;
             if (productId) {
                 matchedProduct = products.find(p => p.id_product == productId);
@@ -149,10 +163,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (mappedThemeCards.length > 0) {
             isCategoryLiveFilter = true;
-            // Hide our duplicate product list area as we filter the theme cards directly
+
+            // ADAPT SIDEBAR LAYOUT TO NATIVE LEFT COLUMN
+            // Prevents overflow / squishing issues
+            const app = document.getElementById('configurator-app');
+            const layout = document.querySelector('.config-layout');
             const configMainArea = document.querySelector('.config-main');
+            const sidebar = document.getElementById('sidebar');
+
+            if (app) app.style.maxWidth = '100%';
+            if (layout) {
+                layout.style.display = 'block';
+                layout.style.gap = '0';
+            }
             if (configMainArea) {
                 configMainArea.style.display = 'none';
+            }
+            if (sidebar) {
+                sidebar.style.width = '100%';
+                sidebar.style.flex = 'none';
+                sidebar.style.boxSizing = 'border-box';
             }
         }
     }
@@ -354,6 +384,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function onFilterInput() {
+        updateAllCheckboxesPills();
+        if (isInstant) {
+            applyFilters();
+        }
+    }
+
     function setupSliderEvents(id, state, isDecimal) {
         const minRange = document.getElementById(`min-${id}`);
         const maxRange = document.getElementById(`max-${id}`);
@@ -370,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             state.currentMin = val;
             minValInput.value = stepFormatter(val);
-            applyFilters();
+            onFilterInput();
         });
 
         maxRange.addEventListener('input', () => {
@@ -381,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             state.currentMax = val;
             maxValInput.value = stepFormatter(val);
-            applyFilters();
+            onFilterInput();
         });
 
         minValInput.addEventListener('change', () => {
@@ -391,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
             minValInput.value = stepFormatter(val);
             minRange.value = val;
             state.currentMin = val;
-            applyFilters();
+            onFilterInput();
         });
 
         maxValInput.addEventListener('change', () => {
@@ -401,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
             maxValInput.value = stepFormatter(val);
             maxRange.value = val;
             state.currentMax = val;
-            applyFilters();
+            onFilterInput();
         });
     }
 
@@ -420,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             state.currentMinW = val;
             minWValInput.value = Math.round(val);
-            applyFilters();
+            onFilterInput();
         });
 
         maxWRange.addEventListener('input', () => {
@@ -431,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             state.currentMaxW = val;
             maxWValInput.value = Math.round(val);
-            applyFilters();
+            onFilterInput();
         });
 
         minWValInput.addEventListener('change', () => {
@@ -441,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
             minWValInput.value = Math.round(val);
             minWRange.value = val;
             state.currentMinW = val;
-            applyFilters();
+            onFilterInput();
         });
 
         maxWValInput.addEventListener('change', () => {
@@ -451,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             maxWValInput.value = Math.round(val);
             maxWRange.value = val;
             state.currentMaxW = val;
-            applyFilters();
+            onFilterInput();
         });
 
         // Height
@@ -468,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             state.currentMinH = val;
             minHValInput.value = Math.round(val);
-            applyFilters();
+            onFilterInput();
         });
 
         maxHRange.addEventListener('input', () => {
@@ -479,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             state.currentMaxH = val;
             maxHValInput.value = Math.round(val);
-            applyFilters();
+            onFilterInput();
         });
 
         minHValInput.addEventListener('change', () => {
@@ -489,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
             minHValInput.value = Math.round(val);
             minHRange.value = val;
             state.currentMinH = val;
-            applyFilters();
+            onFilterInput();
         });
 
         maxHValInput.addEventListener('change', () => {
@@ -499,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
             maxHValInput.value = Math.round(val);
             maxHRange.value = val;
             state.currentMaxH = val;
-            applyFilters();
+            onFilterInput();
         });
     }
 
@@ -520,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const idx = state.selected.indexOf(val);
                 if (idx > -1) state.selected.splice(idx, 1);
             }
-            applyFilters();
+            onFilterInput();
         });
     }
 
@@ -568,8 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const idx = state.selected.indexOf(opt);
                     if (idx > -1) state.selected.splice(idx, 1);
                 }
-                applyFilters();
-                updateAllCheckboxesPills();
+                onFilterInput();
             });
 
             container.appendChild(pill);
@@ -623,7 +659,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }).length;
     }
 
+    // Dynamic Server-Side AJAX Filtering
     function applyFilters() {
+        if (!ajaxUrl) {
+            applyFiltersLocally();
+            return;
+        }
+
+        // Visual loading indicator
+        if (productListContainer && !isCategoryLiveFilter) {
+            productListContainer.style.opacity = '0.5';
+        }
+
+        fetch(ajaxUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id_category: idCategory,
+                filters: filterStates
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (productListContainer && !isCategoryLiveFilter) {
+                productListContainer.style.opacity = '1';
+            }
+            if (data && data.success) {
+                updateUIWithFilteredProducts(data.products);
+            } else {
+                applyFiltersLocally(); // fallback
+            }
+        })
+        .catch(err => {
+            console.error("AJAX filter request failed:", err);
+            if (productListContainer && !isCategoryLiveFilter) {
+                productListContainer.style.opacity = '1';
+            }
+            applyFiltersLocally(); // fallback
+        });
+    }
+
+    function applyFiltersLocally() {
         const filtered = products.filter(p => {
             for (const [fid, state] of Object.entries(filterStates)) {
                 if (fid === 'price') {
@@ -655,8 +733,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         });
 
+        updateUIWithFilteredProducts(filtered);
+    }
+
+    function updateUIWithFilteredProducts(filtered) {
         if (isCategoryLiveFilter) {
-            // Apply visibility toggle on current category view theme product cards directly!
             let visibleCount = 0;
             mappedThemeCards.forEach(item => {
                 const isMatched = filtered.some(fp => fp.id_product == item.product.id_product);
@@ -668,20 +749,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Update badge count
-            if (productCountBadge) {
-                productCountBadge.textContent = visibleCount;
-            }
+            // Update all badge counts (both sidebar and main toolbar)
+            document.querySelectorAll('.badge-count').forEach(el => {
+                el.textContent = visibleCount;
+            });
         } else {
-            // Standalone list rendering
             renderProducts(filtered);
         }
     }
 
     function renderProducts(items) {
-        if (productCountBadge) {
-            productCountBadge.textContent = items.length;
-        }
+        // Update all badge counts
+        document.querySelectorAll('.badge-count').forEach(el => {
+            el.textContent = items.length;
+        });
+
+        if (!productListContainer) return;
         productListContainer.innerHTML = '';
 
         if (items.length === 0) {
