@@ -375,6 +375,17 @@ class LabelConfigurator extends Module implements WidgetInterface
             }
         }
 
+        // Automatic category detection for product pages
+        if ($id_category === 0) {
+            $id_product = (int)Tools::getValue('id_product');
+            if ($id_product > 0) {
+                $product = new Product($id_product);
+                if (Validate::isLoadedObject($product)) {
+                    $id_category = (int)$product->id_category_default;
+                }
+            }
+        }
+
         $products_raw = [];
         if ($id_category > 0) {
             $categories_pool = $this->getCategorySubcategories($id_category, $id_lang);
@@ -385,7 +396,7 @@ class LabelConfigurator extends Module implements WidgetInterface
             $sql = "SELECT DISTINCT p.id_product, pl.name, pl.link_rewrite
                     FROM "._DB_PREFIX_."product p
                     JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
-                    JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
+                    LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
                     JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product)
                     WHERE ps.active = 1 AND cp.id_category IN ($category_list_sql)
                     LIMIT 300";
@@ -398,7 +409,7 @@ class LabelConfigurator extends Module implements WidgetInterface
             $sql = "SELECT DISTINCT p.id_product, pl.name, pl.link_rewrite
                     FROM "._DB_PREFIX_."product p
                     JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
-                    JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
+                    LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
                     WHERE ps.active = 1 LIMIT 300";
             $products_raw = Db::getInstance()->executeS($sql);
         }
@@ -464,6 +475,10 @@ class LabelConfigurator extends Module implements WidgetInterface
                 ];
             }
         }
+
+        // Add to logger to diagnose active results count
+        PrestaShopLogger::addLog('LabelConfigurator - getFilteredProductsData found: ' . count($results) . ' products for id_category: ' . $id_category, 1);
+
         return $results;
     }
 
@@ -476,6 +491,17 @@ class LabelConfigurator extends Module implements WidgetInterface
                 $category = $controller->getCategory();
                 if (Validate::isLoadedObject($category)) {
                     $id_category = (int)$category->id;
+                }
+            }
+        }
+
+        // Automatic category detection for product pages
+        if ($id_category === 0) {
+            $id_product = (int)Tools::getValue('id_product');
+            if ($id_product > 0) {
+                $product = new Product($id_product);
+                if (Validate::isLoadedObject($product)) {
+                    $id_category = (int)$product->id_category_default;
                 }
             }
         }
@@ -521,9 +547,14 @@ class LabelConfigurator extends Module implements WidgetInterface
         }
         $instant_val = (bool)$instant_val;
 
+        $products_base64 = base64_encode(json_encode($results));
+        $config_base64 = base64_encode($filters_config);
+
         $this->smarty->assign([
             'products_json' => json_encode($results),
+            'products_base64' => $products_base64,
             'filters_config_json' => $filters_config,
+            'config_base64' => $config_base64,
             'filters_instant' => $instant_val,
             'ajax_url' => $this->context->link->getModuleLink('labelconfigurator', 'ajax'),
             'id_category' => $id_category
