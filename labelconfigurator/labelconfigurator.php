@@ -383,31 +383,26 @@ class LabelConfigurator extends Module implements WidgetInterface
 
         $products_raw = [];
         if ($id_category > 0) {
-            $category = new Category($id_category, $id_lang);
-            if (Validate::isLoadedObject($category)) {
-                // Fetch up to 300 products in one call using core logic
-                $products_raw = $category->getProducts($id_lang, 1, 300, 'name', 'asc', false, true);
+            $categories_pool = $this->getCategorySubcategories($id_category, $id_lang);
+            foreach ($categories_pool as $cat_id) {
+                $cat = new Category($cat_id, $id_lang);
+                if (Validate::isLoadedObject($cat)) {
+                    // Fetch up to 300 products in one call using core logic
+                    $cat_products = $cat->getProducts($id_lang, 1, 300, 'name', 'asc', false, true);
+                    if (!empty($cat_products)) {
+                        $products_raw = array_merge($products_raw, $cat_products);
+                    }
+                }
             }
-        }
-
-        // If no products found via category, fallback to recursive SQL query or active catalog
-        if (empty($products_raw)) {
-            $category_join = '';
-            $category_where = '';
-            if ($id_category > 0) {
-                $categories_pool = $this->getCategorySubcategories($id_category, $id_lang);
-                $category_join = " JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product) ";
-                $category_where = " AND cp.id_category IN (" . implode(',', array_map('intval', $categories_pool)) . ") ";
+            // Remove duplicates
+            $unique_products = [];
+            foreach ($products_raw as $p) {
+                $unique_products[$p['id_product']] = $p;
             }
-
-            $sql = "SELECT p.id_product, pl.name, pl.link_rewrite
-                    FROM "._DB_PREFIX_."product p
-                    JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang " . Shop::addSqlRestrictionOnLang('pl') . ")
-                    JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
-                    $category_join
-                    WHERE ps.active = 1 $category_where LIMIT 300";
-
-            $products_raw = Db::getInstance()->executeS($sql);
+            $products_raw = array_values($unique_products);
+        } else {
+            // Global context fallback
+            $products_raw = Product::getProducts($id_lang, 0, 300, 'name', 'asc', false, true);
         }
 
         $results = [];
@@ -531,9 +526,12 @@ class LabelConfigurator extends Module implements WidgetInterface
         }
         $instant_val = (bool)$instant_val;
 
+        $products_base64 = base64_encode(json_encode($results));
+        $config_base64 = base64_encode($filters_config);
+
         $this->smarty->assign([
-            'products_json' => json_encode($results),
-            'filters_config_json' => $filters_config,
+            'products_base64' => $products_base64,
+            'config_base64' => $config_base64,
             'filters_instant' => $instant_val,
             'ajax_url' => $this->context->link->getModuleLink('labelconfigurator', 'ajax'),
             'id_category' => $id_category

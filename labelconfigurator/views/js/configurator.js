@@ -5,26 +5,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!rawDataEl || !rawConfigEl || !appEl) return;
 
-    // Helper: decode HTML entities (handles &quot;, &amp;, etc. safely)
-    function decodeHtml(html) {
-        const txt = document.createElement("textarea");
-        txt.innerHTML = html;
-        return txt.value;
-    }
-
     let products = [];
     let filtersConfig = [];
 
     try {
-        const decodedProducts = decodeHtml(rawDataEl.textContent || rawDataEl.innerHTML);
-        const decodedConfig = decodeHtml(rawConfigEl.textContent || rawConfigEl.innerHTML);
+        // Decode Base64 safely
+        const decodedProducts = atob(rawDataEl.textContent.trim());
+        const decodedConfig = atob(rawConfigEl.textContent.trim());
 
         products = JSON.parse(decodedProducts);
         filtersConfig = JSON.parse(decodedConfig);
     } catch (e) {
-        console.error("Failed to parse product or config JSON:", e);
+        console.error("Failed to parse product or config JSON from Base64:", e);
         return;
     }
+
+    // Bulletproof conversion to Array in case of PHP JSON associative array / object serialization
+    if (products && !Array.isArray(products)) {
+        products = Object.values(products);
+    }
+    if (filtersConfig && !Array.isArray(filtersConfig)) {
+        filtersConfig = Object.values(filtersConfig);
+    }
+
+    if (!products) products = [];
+    if (!filtersConfig) filtersConfig = [];
 
     const dynamicFiltersContainer = document.getElementById('dynamic-filters-container');
     const productListContainer = document.getElementById('product-list');
@@ -180,16 +185,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Prevents overflow / squishing issues
             const app = document.getElementById('configurator-app');
             const layout = document.querySelector('.config-layout');
-            const configMainArea = document.querySelector('.config-main');
             const sidebar = document.getElementById('sidebar');
 
             if (app) app.style.maxWidth = '100%';
             if (layout) {
                 layout.style.display = 'block';
                 layout.style.gap = '0';
-            }
-            if (configMainArea) {
-                configMainArea.style.display = 'none';
             }
             if (sidebar) {
                 sidebar.style.width = '100%';

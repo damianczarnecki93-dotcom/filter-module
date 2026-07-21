@@ -1,7 +1,7 @@
 <div id="configurator-app" data-instant="{$filters_instant|intval}" data-ajax-url="{$ajax_url|escape:'html':'UTF-8'}" data-id-category="{$id_category|intval}">
-    <!-- Preloaded Data for Client-Side Engine -->
-    <script type="application/json" id="json-data">{$products_json nofilter}</script>
-    <script type="application/json" id="config-data">{$filters_config_json nofilter}</script>
+    <!-- Preloaded Data for Client-Side Engine encoded as Base64 -->
+    <div id="json-data" style="display:none;">{$products_base64}</div>
+    <div id="config-data" style="display:none;">{$config_base64}</div>
 
     <!-- Left Sidebar: Dynamic Filters Panel -->
     <div class="config-sidebar" id="sidebar">
