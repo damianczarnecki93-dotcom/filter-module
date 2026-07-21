@@ -345,17 +345,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dropdownMenuId = `menu-${fid}`;
 
                     body.innerHTML = `
-                        <div class="custom-dropdown" id="dropdown-${fid}">
-                            <div class="dropdown-trigger" id="${dropdownTriggerId}">
-                                <span class="trigger-text">Wybierz opcje...</span>
-                                <i class="material-icons chevron">expand_more</i>
+                        <div class="lc-custom-dropdown" id="dropdown-${fid}">
+                            <div class="lc-dropdown-trigger" id="${dropdownTriggerId}">
+                                <span class="lc-trigger-text">Wybierz opcje...</span>
+                                <i class="material-icons lc-chevron">expand_more</i>
                             </div>
-                            <div class="dropdown-menu" id="${dropdownMenuId}" style="display: none;">
-                                <div class="in-category-search">
+                            <div class="lc-dropdown-menu" id="${dropdownMenuId}" style="display: none;">
+                                <div class="lc-in-category-search">
                                     <i class="material-icons">search</i>
                                     <input type="text" id="${inCategorySearchId}" placeholder="Wyszukaj wartości...">
                                 </div>
-                                <div class="select-options" id="${itemsContainerId}">
+                                <div class="lc-select-options" id="${itemsContainerId}">
                                 </div>
                             </div>
                         </div>
@@ -368,10 +368,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     trigger.addEventListener('click', (e) => {
                         e.stopPropagation();
                         // Close all other open dropdowns first
-                        document.querySelectorAll('.dropdown-menu').forEach(m => {
+                        document.querySelectorAll('.lc-dropdown-menu').forEach(m => {
                             if (m !== menu) m.style.display = 'none';
                         });
-                        document.querySelectorAll('.dropdown-trigger').forEach(t => {
+                        document.querySelectorAll('.lc-dropdown-trigger').forEach(t => {
                             if (t !== trigger) t.classList.remove('open');
                         });
 
@@ -607,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         visibleOptions.forEach(opt => {
             const pill = document.createElement('div');
-            pill.className = 'pill-item';
+            pill.className = 'lc-pill-item';
             if (state.selected.includes(opt)) {
                 pill.classList.add('active');
             }
@@ -626,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Update Trigger Text dynamically
                 if (trigger) {
-                    const triggerText = trigger.querySelector('.trigger-text');
+                    const triggerText = trigger.querySelector('.lc-trigger-text');
                     if (triggerText) {
                         if (state.selected.length === 0) {
                             triggerText.textContent = 'Wybierz opcje...';
@@ -783,11 +783,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 const productId = getProductIdFromCard(cardEl);
                 if (productId) {
                     const isMatched = filtered.some(fp => fp.id_product == productId);
+
+                    // Find the grid column wrapper element (bootstrap col-)
+                    let displayElement = cardEl;
+                    let parent = cardEl.parentElement;
+                    if (parent) {
+                        const classes = Array.from(parent.classList);
+                        const isCol = classes.some(c => c.startsWith('col-') || c === 'product-miniature-wrapper' || c.includes('product-miniature-wrapper'));
+                        if (isCol) {
+                            displayElement = parent;
+                        } else {
+                            // Go one level higher if needed (sometimes miniatures have inner wraps)
+                            let grandParent = parent.parentElement;
+                            if (grandParent) {
+                                const gpClasses = Array.from(grandParent.classList);
+                                if (gpClasses.some(c => c.startsWith('col-'))) {
+                                    displayElement = grandParent;
+                                }
+                            }
+                        }
+                    }
+
                     if (isMatched) {
-                        cardEl.style.display = '';
+                        displayElement.style.display = '';
                         visibleCount++;
                     } else {
-                        cardEl.style.display = 'none';
+                        displayElement.style.display = 'none';
                     }
                 }
             });
@@ -818,16 +839,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Close open custom dropdowns when clicking outside
     document.addEventListener('click', () => {
-        document.querySelectorAll('.dropdown-menu').forEach(m => {
+        document.querySelectorAll('.lc-dropdown-menu').forEach(m => {
             m.style.display = 'none';
         });
-        document.querySelectorAll('.dropdown-trigger').forEach(t => {
+        document.querySelectorAll('.lc-dropdown-trigger').forEach(t => {
             t.classList.remove('open');
         });
     });
-
-    // Try to detect theme products on the category page first
-    detectThemeProducts();
 
     // Initial builder execution
     buildDynamicFilters();
