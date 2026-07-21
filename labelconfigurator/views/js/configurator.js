@@ -5,12 +5,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!rawDataEl || !rawConfigEl || !appEl) return;
 
+    // Helper: decode HTML entities (handles &quot;, &amp;, etc. safely)
+    function decodeHtml(html) {
+        const txt = document.createElement("textarea");
+        txt.innerHTML = html;
+        return txt.value;
+    }
+
     let products = [];
     let filtersConfig = [];
 
     try {
-        products = JSON.parse(rawDataEl.textContent || rawDataEl.innerHTML);
-        filtersConfig = JSON.parse(rawConfigEl.textContent || rawConfigEl.innerHTML);
+        const decodedProducts = decodeHtml(rawDataEl.textContent || rawDataEl.innerHTML);
+        const decodedConfig = decodeHtml(rawConfigEl.textContent || rawConfigEl.innerHTML);
+
+        products = JSON.parse(decodedProducts);
+        filtersConfig = JSON.parse(decodedConfig);
     } catch (e) {
         console.error("Failed to parse product or config JSON:", e);
         return;
@@ -51,14 +61,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function parseNumber(val) {
         if (typeof val === 'number') return val;
         if (!val) return 0;
-        const match = val.replace(',', '.').match(/(\d+(?:[.,]\d+)?)/);
+        const str = String(val);
+        const match = str.replace(',', '.').match(/(\d+(?:[.,]\d+)?)/);
         return match ? parseFloat(match[1]) : 0;
     }
 
     // Helper: parse dimension pair (e.g. "70x37" or "105 x 148 mm")
     function parseSizeSplit(val) {
         if (!val) return { w: 0, h: 0 };
-        const match = val.replace(',', '.').match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i);
+        const str = String(val);
+        const match = str.replace(',', '.').match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i);
         if (match) {
             return { w: parseFloat(match[1]), h: parseFloat(match[2]) };
         }
@@ -192,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dynamicFiltersContainer.innerHTML = '';
         filterStates = {};
 
-        const activeFilters = filtersConfig.filter(f => f.active);
+        const activeFilters = filtersConfig.filter(f => f && f.active);
 
         activeFilters.forEach(filter => {
             const fid = filter.id;
