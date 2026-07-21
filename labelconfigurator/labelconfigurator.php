@@ -352,6 +352,19 @@ class LabelConfigurator extends Module implements WidgetInterface
         );
     }
 
+    public function getCategorySubcategories($id_category, $id_lang)
+    {
+        $categories = [(int)$id_category];
+        $children = Category::getChildren((int)$id_category, $id_lang, true);
+        if ($children) {
+            foreach ($children as $child) {
+                $child_id = (int)$child['id_category'];
+                $categories = array_merge($categories, $this->getCategorySubcategories($child_id, $id_lang));
+            }
+        }
+        return array_unique($categories);
+    }
+
     public function getFilteredProductsData()
     {
         $id_lang = (int)$this->context->language->id;
@@ -359,24 +372,27 @@ class LabelConfigurator extends Module implements WidgetInterface
 
         // Dynamic Category Scoping
         $id_category = (int)Tools::getValue('id_category');
-        $controller = $this->context->controller;
-        if ($id_category === 0 && isset($controller->php_self) && $controller->php_self === 'category') {
-            $category = $controller->getCategory();
-            if (Validate::isLoadedObject($category)) {
-                $id_category = (int)$category->id;
+        if ($id_category === 0) {
+            $controller = $this->context->controller;
+            if (isset($controller) && method_exists($controller, 'getCategory')) {
+                $category = $controller->getCategory();
+                if (Validate::isLoadedObject($category)) {
+                    $id_category = (int)$category->id;
+                }
             }
         }
 
         $category_join = '';
         $category_where = '';
         if ($id_category > 0) {
+            $categories_pool = $this->getCategorySubcategories($id_category, $id_lang);
             $category_join = " JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product) ";
-            $category_where = " AND cp.id_category = $id_category ";
+            $category_where = " AND cp.id_category IN (" . implode(',', array_map('intval', $categories_pool)) . ") ";
         }
 
         $sql = "SELECT p.id_product, pl.name, pl.link_rewrite
                 FROM "._DB_PREFIX_."product p
-                JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang AND pl.id_shop = $id_shop)
+                JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang " . Shop::addSqlRestrictionOnLang('pl') . ")
                 JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
                 $category_join
                 WHERE ps.active = 1 $category_where LIMIT 300";
@@ -448,11 +464,13 @@ class LabelConfigurator extends Module implements WidgetInterface
     public function renderWidget($hookName = null, array $configuration = [])
     {
         $id_category = (int)Tools::getValue('id_category');
-        $controller = $this->context->controller;
-        if ($id_category === 0 && isset($controller->php_self) && $controller->php_self === 'category') {
-            $category = $controller->getCategory();
-            if (Validate::isLoadedObject($category)) {
-                $id_category = (int)$category->id;
+        if ($id_category === 0) {
+            $controller = $this->context->controller;
+            if (isset($controller) && method_exists($controller, 'getCategory')) {
+                $category = $controller->getCategory();
+                if (Validate::isLoadedObject($category)) {
+                    $id_category = (int)$category->id;
+                }
             }
         }
 
