@@ -50,22 +50,47 @@
     .filter-body { margin-top: 15px; transition: max-height 0.2s ease-out, opacity 0.2s ease-out; overflow: hidden; }
     .filter-header.collapsed + .filter-body { display: none; }
 
+    /* Custom Dropdown select-with-search styling */
+    .custom-dropdown { position: relative; width: 100%; box-sizing: border-box; }
+
+    .dropdown-trigger {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 14px; background: #ffffff; border: 1px solid #cbd5e1;
+        border-radius: 6px; cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
+        font-size: 13px; font-weight: 600; color: #334155; user-select: none;
+    }
+    .dropdown-trigger:hover { border-color: #2c7da0; }
+    .dropdown-trigger.open { border-color: #2c7da0; box-shadow: 0 0 0 3px rgba(44, 125, 160, 0.15); }
+    .dropdown-trigger .chevron { font-size: 18px; color: #64748b; transition: transform 0.2s; }
+    .dropdown-trigger.open .chevron { transform: rotate(180deg); }
+    .dropdown-trigger .trigger-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; }
+
+    .dropdown-menu {
+        position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+        margin-top: 4px; background: #ffffff; border: 1px solid #cbd5e1;
+        border-radius: 6px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        padding: 10px; display: flex; flex-direction: column; gap: 8px; max-height: 250px;
+    }
+
+    .select-options { max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .select-options::-webkit-scrollbar { width: 5px; }
+    .select-options::-webkit-scrollbar-track { background: #f1f5f9; }
+    .select-options::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+    /* Custom options inside dropdown */
+    .select-options .pill-item {
+        padding: 8px 12px; border: 1px solid transparent; border-radius: 4px;
+        text-align: left; justify-content: flex-start; background: #f8fafc; font-weight: 500;
+        cursor: pointer; box-sizing: border-box; width: 100%; display: flex; align-items: center;
+    }
+    .select-options .pill-item:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .select-options .pill-item.active { background: #2c7da0; color: #ffffff; }
+
     /* In-Category Search Box inside filter lists */
-    .in-category-search { position: relative; margin-bottom: 12px; }
+    .in-category-search { position: relative; width: 100%; box-sizing: border-box; }
     .in-category-search input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background: #f8fafc; }
     .in-category-search input:focus { outline: none; border-color: #2c7da0; background: #fff; }
     .in-category-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; }
-
-    /* Modern Pill / Option buttons with Dynamic Parentheses counts */
-    .pill-filter-list { display: flex; flex-direction: column; gap: 8px; }
-    .pill-item {
-        display: flex; align-items: center; justify-content: center; width: 100%; padding: 10px 14px;
-        background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px;
-        font-size: 13px; font-weight: 600; color: #334155; cursor: pointer; transition: all 0.2s ease;
-        box-sizing: border-box; text-align: center;
-    }
-    .pill-item:hover { border-color: #2c7da0; background: #f0f7f9; }
-    .pill-item.active { border-color: #2c7da0; background: #2c7da0; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(44, 125, 160, 0.2); }
 
     /* Grid-based Color Swatch filter option styling */
     .swatch-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 5px 0; }
@@ -91,12 +116,6 @@
     .dual-slider input[type="range"]::-webkit-slider-thumb:hover { background: #1f5d78; }
     .dual-slider input[type="range"]::-moz-range-thumb { pointer-events: auto; width: 14px; height: 14px; background: #2c7da0; border-radius: 50%; cursor: pointer; position: relative; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 2px solid #fff; transition: background 0.15s; }
     .dual-slider input[type="range"]::-moz-range-thumb:hover { background: #1f5d78; }
-
-    /* Scrollable checkbox option style */
-    .checkbox-filter-list { max-height: 180px; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; gap: 6px; }
-    .checkbox-filter-list::-webkit-scrollbar { width: 5px; }
-    .checkbox-filter-list::-webkit-scrollbar-track { background: #f1f5f9; }
-    .checkbox-filter-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
     /* Action Buttons Area */
     .sidebar-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 20px; }

@@ -53,8 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!filtersConfig) filtersConfig = [];
 
     const dynamicFiltersContainer = document.getElementById('dynamic-filters-container');
-    const productListContainer = document.getElementById('product-list');
-    const noResultsMsg = document.getElementById('no-results');
     const btnResetAll = document.getElementById('btn-reset-all');
     const btnApplyFilters = document.getElementById('btn-apply-filters');
 
@@ -80,8 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Dynamic state trackers
     let filterStates = {};
-    let isCategoryLiveFilter = false;
-    let mappedThemeCards = [];
 
     // Helper: parse numbers from string
     function parseNumber(val) {
@@ -138,87 +134,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return color;
     }
 
-    // Helper: Normalize URL pathname to match reliably
-    function getUrlPathname(urlStr) {
-        if (!urlStr) return '';
-        try {
-            const u = new URL(urlStr, window.location.origin);
-            return u.pathname;
-        } catch(e) {
-            return urlStr;
-        }
-    }
+    // Helper: Extract Product ID from theme miniature card
+    function getProductIdFromCard(cardEl) {
+        // 1. Check data-id-product or data-id attributes
+        let id = cardEl.getAttribute('data-id-product') || cardEl.getAttribute('data-id');
+        if (id && !isNaN(id)) return parseInt(id);
 
-    // Attempt to detect and map theme product cards for Live Category Filtering
-    function detectThemeProducts() {
-        const cardSelectors = [
-            '.product-miniature',
-            '.js-product-miniature',
-            '.product-miniature-wrapper',
-            '.product-preview',
-            'article.product-miniature',
-            '.products .product'
-        ];
-
-        let foundCards = [];
-        for (const selector of cardSelectors) {
-            const els = document.querySelectorAll(selector);
-            if (els && els.length > 0) {
-                foundCards = Array.from(els);
-                break;
-            }
+        // 2. Search inside class list (e.g. id-product-123 or product-123)
+        for (const cls of cardEl.classList) {
+            const match = cls.match(/(?:id-product|product)-(\d+)/i);
+            if (match) return parseInt(match[1]);
         }
 
-        if (foundCards.length === 0) {
-            isCategoryLiveFilter = false;
-            return;
-        }
+        // 3. Search inside input fields
+        const idInput = cardEl.querySelector('input[name="id_product"]');
+        if (idInput && idInput.value && !isNaN(idInput.value)) return parseInt(idInput.value);
 
-        mappedThemeCards = [];
-        foundCards.forEach(cardEl => {
-            let productId = cardEl.getAttribute('data-id-product');
-            const anchors = cardEl.querySelectorAll('a[href]');
-            let hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
-
-            let matchedProduct = null;
-            if (productId) {
-                matchedProduct = products.find(p => p.id_product == productId);
-            }
-            if (!matchedProduct && hrefs.length > 0) {
-                matchedProduct = products.find(p => {
-                    const pPath = getUrlPathname(p.url);
-                    return hrefs.includes(pPath);
-                });
-            }
-
-            if (matchedProduct) {
-                mappedThemeCards.push({
-                    el: cardEl,
-                    product: matchedProduct
-                });
-            }
-        });
-
-        if (mappedThemeCards.length > 0) {
-            isCategoryLiveFilter = true;
-
-            // ADAPT SIDEBAR LAYOUT TO NATIVE LEFT COLUMN
-            // Prevents overflow / squishing issues
-            const app = document.getElementById('configurator-app');
-            const layout = document.querySelector('.config-layout');
-            const sidebar = document.getElementById('sidebar');
-
-            if (app) app.style.maxWidth = '100%';
-            if (layout) {
-                layout.style.display = 'block';
-                layout.style.gap = '0';
-            }
-            if (sidebar) {
-                sidebar.style.width = '100%';
-                sidebar.style.flex = 'none';
-                sidebar.style.boxSizing = 'border-box';
+        // 4. Search inside anchor links (e.g. href="/123-product-name" or "id_product=123")
+        const anchors = cardEl.querySelectorAll('a[href]');
+        for (const a of anchors) {
+            const href = a.getAttribute('href');
+            if (href) {
+                const matchId = href.match(/id_product=(\d+)/i) || href.match(/\/(\d+)-[a-zA-Z0-9-]+\.html/i) || href.match(/\/(\d+)-/i);
+                if (matchId) return parseInt(matchId[1]);
             }
         }
+        return null;
     }
 
     // Helper: Build dynamic filters based on configuration
@@ -400,17 +341,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const inCategorySearchId = `search-cat-${fid}`;
                     const itemsContainerId = `list-${fid}`;
+                    const dropdownTriggerId = `trigger-${fid}`;
+                    const dropdownMenuId = `menu-${fid}`;
 
                     body.innerHTML = `
-                        <div class="in-category-search">
-                            <i class="material-icons">search</i>
-                            <input type="text" id="${inCategorySearchId}" placeholder="Wyszukaj wartości...">
-                        </div>
-                        <div class="pill-filter-list" id="${itemsContainerId}">
+                        <div class="custom-dropdown" id="dropdown-${fid}">
+                            <div class="dropdown-trigger" id="${dropdownTriggerId}">
+                                <span class="trigger-text">Wybierz opcje...</span>
+                                <i class="material-icons chevron">expand_more</i>
+                            </div>
+                            <div class="dropdown-menu" id="${dropdownMenuId}" style="display: none;">
+                                <div class="in-category-search">
+                                    <i class="material-icons">search</i>
+                                    <input type="text" id="${inCategorySearchId}" placeholder="Wyszukaj wartości...">
+                                </div>
+                                <div class="select-options" id="${itemsContainerId}">
+                                </div>
+                            </div>
                         </div>
                     `;
 
-                    setupPillsEvents(fid, filterStates[fid], inCategorySearchId, itemsContainerId);
+                    // Handle custom dropdown open/close click event
+                    const trigger = body.querySelector(`#${dropdownTriggerId}`);
+                    const menu = body.querySelector(`#${dropdownMenuId}`);
+
+                    trigger.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // Close all other open dropdowns first
+                        document.querySelectorAll('.dropdown-menu').forEach(m => {
+                            if (m !== menu) m.style.display = 'none';
+                        });
+                        document.querySelectorAll('.dropdown-trigger').forEach(t => {
+                            if (t !== trigger) t.classList.remove('open');
+                        });
+
+                        const isOpen = menu.style.display === 'flex';
+                        menu.style.display = isOpen ? 'none' : 'flex';
+                        trigger.classList.toggle('open', !isOpen);
+                    });
+
+                    // Prevent click inside menu from closing the dropdown
+                    menu.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+
+                    setupPillsEvents(fid, filterStates[fid], inCategorySearchId, itemsContainerId, trigger);
                 }
             }
 
@@ -601,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function setupPillsEvents(id, state, searchInputId, containerId) {
+    function setupPillsEvents(id, state, searchInputId, containerId, trigger) {
         const searchInput = document.getElementById(searchInputId);
         const container = document.getElementById(containerId);
 
@@ -611,13 +586,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         searchInput.addEventListener('input', () => {
             state.searchTerm = searchInput.value.toLowerCase().trim();
-            updatePillsRender(id, state, container);
+            updatePillsRender(id, state, container, trigger);
         });
 
-        updatePillsRender(id, state, container);
+        updatePillsRender(id, state, container, trigger);
     }
 
-    function updatePillsRender(id, state, container) {
+    function updatePillsRender(id, state, container, trigger) {
         if (!container) return;
         container.innerHTML = '';
 
@@ -648,6 +623,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     const idx = state.selected.indexOf(opt);
                     if (idx > -1) state.selected.splice(idx, 1);
                 }
+
+                // Update Trigger Text dynamically
+                if (trigger) {
+                    const triggerText = trigger.querySelector('.trigger-text');
+                    if (triggerText) {
+                        if (state.selected.length === 0) {
+                            triggerText.textContent = 'Wybierz opcje...';
+                        } else {
+                            triggerText.textContent = state.selected.join(', ');
+                        }
+                    }
+                }
+
                 onFilterInput();
             });
 
@@ -662,8 +650,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isColor = /kolor|color|barwa/i.test(label);
                 if (!isColor) {
                     const container = document.getElementById(`list-${fid}`);
+                    const trigger = document.getElementById(`trigger-${fid}`);
                     if (container) {
-                        updatePillsRender(fid, state, container);
+                        updatePillsRender(fid, state, container, trigger);
                     }
                 }
             }
@@ -709,11 +698,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Visual loading indicator
-        if (productListContainer && !isCategoryLiveFilter) {
-            productListContainer.style.opacity = '0.5';
-        }
-
         fetch(ajaxUrl, {
             method: 'POST',
             headers: {
@@ -726,9 +710,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(response => response.json())
         .then(data => {
-            if (productListContainer && !isCategoryLiveFilter) {
-                productListContainer.style.opacity = '1';
-            }
             if (data && data.success) {
                 updateUIWithFilteredProducts(data.products);
             } else {
@@ -737,9 +718,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(err => {
             console.error("AJAX filter request failed:", err);
-            if (productListContainer && !isCategoryLiveFilter) {
-                productListContainer.style.opacity = '1';
-            }
             applyFiltersLocally(); // fallback
         });
     }
@@ -780,15 +758,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUIWithFilteredProducts(filtered) {
-        if (isCategoryLiveFilter) {
+        // Native product card selectors for PrestaShop 1.7 theme
+        const cardSelectors = [
+            '.product-miniature',
+            '.js-product-miniature',
+            '.product-miniature-wrapper',
+            '.product-preview',
+            'article.product-miniature',
+            '.products .product'
+        ];
+
+        let foundCards = [];
+        for (const selector of cardSelectors) {
+            const els = document.querySelectorAll(selector);
+            if (els && els.length > 0) {
+                foundCards = Array.from(els);
+                break;
+            }
+        }
+
+        if (foundCards.length > 0) {
             let visibleCount = 0;
-            mappedThemeCards.forEach(item => {
-                const isMatched = filtered.some(fp => fp.id_product == item.product.id_product);
-                if (isMatched) {
-                    item.el.style.display = '';
-                    visibleCount++;
-                } else {
-                    item.el.style.display = 'none';
+            foundCards.forEach(cardEl => {
+                const productId = getProductIdFromCard(cardEl);
+                if (productId) {
+                    const isMatched = filtered.some(fp => fp.id_product == productId);
+                    if (isMatched) {
+                        cardEl.style.display = '';
+                        visibleCount++;
+                    } else {
+                        cardEl.style.display = 'none';
+                    }
                 }
             });
 
@@ -796,59 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.badge-count').forEach(el => {
                 el.textContent = visibleCount;
             });
-        } else {
-            renderProducts(filtered);
         }
-    }
-
-    function renderProducts(items) {
-        // Update all badge counts
-        document.querySelectorAll('.badge-count').forEach(el => {
-            el.textContent = items.length;
-        });
-
-        if (!productListContainer) return;
-        productListContainer.innerHTML = '';
-
-        if (items.length === 0) {
-            if (noResultsMsg) noResultsMsg.style.display = 'block';
-            return;
-        }
-        if (noResultsMsg) noResultsMsg.style.display = 'none';
-
-        items.forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'product-card';
-
-            const imgUrl = p.image || '/img/p/pl-default-home_default.jpg';
-
-            let detailsHtml = '';
-            filtersConfig.forEach(f => {
-                if (f.active && f.id !== 'price') {
-                    const val = p.features && p.features['f_' + f.id];
-                    if (val) {
-                        detailsHtml += `<p>${f.label}: <span>${val}</span></p>`;
-                    }
-                }
-            });
-
-            card.innerHTML = `
-                <div>
-                    <div class="card-img-wrapper">
-                        <img src="${imgUrl}" alt="${p.name}" class="card-img">
-                    </div>
-                    <h4 class="card-title" title="${p.name}">${p.name}</h4>
-                    <div class="card-price">${p.formatted_price}</div>
-                    <div class="card-details">
-                        ${detailsHtml}
-                    </div>
-                </div>
-                <a href="${p.url}" class="card-btn">
-                    <i class="material-icons">shopping_bag</i> Zobacz produkt
-                </a>
-            `;
-            productListContainer.appendChild(card);
-        });
     }
 
     btnResetAll.addEventListener('click', () => {
@@ -867,6 +815,16 @@ document.addEventListener('DOMContentLoaded', () => {
             sidebar.classList.remove('open');
         });
     }
+
+    // Close open custom dropdowns when clicking outside
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.dropdown-menu').forEach(m => {
+            m.style.display = 'none';
+        });
+        document.querySelectorAll('.dropdown-trigger').forEach(t => {
+            t.classList.remove('open');
+        });
+    });
 
     // Try to detect theme products on the category page first
     detectThemeProducts();
