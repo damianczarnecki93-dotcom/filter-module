@@ -1083,115 +1083,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (foundCards.length > 0) {
-            let visibleCount = 0;
-            foundCards.forEach(cardEl => {
-                let productId = getProductIdFromCard(cardEl);
-                let matchedProduct = null;
+        const actualRenderedCount = foundCards.length;
 
-                if (productId) {
-                    matchedProduct = products.find(p => p.id_product == productId);
-                }
-                if (!matchedProduct) {
-                    const anchors = cardEl.querySelectorAll('a[href]');
-                    const hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
-                    matchedProduct = products.find(p => {
-                        const pPath = getUrlPathname(p.url);
-                        return hrefs.some(href => href === pPath || href.endsWith(pPath) || pPath.endsWith(href));
-                    });
-                }
-
-                // If matchedProduct is found, check if it's in the filtered list.
-                // If it is NOT matched, and filters are active (hasQ), hide it because it doesn't belong to the category's filtered set.
-                let isMatched = !hasQ;
-                if (hasQ && matchedProduct) {
-                    isMatched = filtered.some(fp => fp.id_product == matchedProduct.id_product);
-                }
-
-                // Find the grid column wrapper element (bootstrap col-)
-                let displayElement = cardEl;
-                let parent = cardEl.parentElement;
-                if (parent) {
-                    const classes = Array.from(parent.classList);
-                    const isCol = classes.some(c => c.startsWith('col-') || c === 'product-miniature-wrapper' || c.includes('product-miniature-wrapper'));
-                    if (isCol) {
-                        displayElement = parent;
-                    } else {
-                        let grandParent = parent.parentElement;
-                        if (grandParent) {
-                            const gpClasses = Array.from(grandParent.classList);
-                            if (gpClasses.some(c => c.startsWith('col-'))) {
-                                displayElement = grandParent;
-                            }
-                        }
-                    }
-                }
-
-                if (isMatched) {
-                    displayElement.style.setProperty('display', '', 'important');
-                    if (matchedProduct) {
-                        visibleCount++;
-                    }
-                } else {
-                    displayElement.style.setProperty('display', 'none', 'important');
-                }
-            });
-
-            // Update all badge counts (both sidebar and main toolbar)
-            document.querySelectorAll('.badge-count').forEach(el => {
-                el.textContent = hasQ ? visibleCount : products.length;
-            });
-
-            // Update real pagination visible page items
-            if (hasQ) {
-                updatePaginationUI(visibleCount);
-            }
-        }
-    }
-
-    function updatePaginationUI(visibleCount) {
-        const paginationContainer = document.querySelector('.pagination') || document.querySelector('.pagination-wrapper') || document.querySelector('.page-list');
-        if (!paginationContainer) return;
-
-        const totalPages = Math.ceil(visibleCount / initialCardsCount) || 1;
-
-        const pageItems = paginationContainer.querySelectorAll('li');
-        if (pageItems && pageItems.length > 0) {
-            pageItems.forEach(li => {
-                const link = li.querySelector('a');
-                if (!link) return;
-
-                const text = link.textContent.trim();
-                const pageNum = parseInt(text);
-
-                if (!isNaN(pageNum)) {
-                    if (pageNum > totalPages) {
-                        li.style.display = 'none';
-                    } else {
-                        li.style.display = '';
-                    }
-                } else {
-                    // Next/Prev arrows
-                    if (text.includes('Następny') || text.includes('Next') || link.getAttribute('rel') === 'next') {
-                        if (totalPages <= 1) {
-                            li.style.display = 'none';
-                        } else {
-                            li.style.display = '';
-                        }
-                    }
-                    if (text.includes('Poprzedni') || text.includes('Prev') || link.getAttribute('rel') === 'prev') {
-                        li.style.display = '';
-                    }
-                }
-            });
-        }
-
-        // If only 1 page remains, we hide the whole pagination container for elegance
-        if (totalPages <= 1) {
-            paginationContainer.style.setProperty('display', 'none', 'important');
-        } else {
-            paginationContainer.style.setProperty('display', '', 'important');
-        }
+        // Update all badge counts (both sidebar and main toolbar) to show exact correct product count
+        document.querySelectorAll('.badge-count').forEach(el => {
+            el.textContent = hasQ ? actualRenderedCount : products.length;
+        });
     }
 
     function setupPillsEvents(parentEl, id, state, searchInputId, containerId, trigger) {
