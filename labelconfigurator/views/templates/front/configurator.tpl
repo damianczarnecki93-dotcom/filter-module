@@ -10,6 +10,9 @@
             <button class="close-sidebar-btn" id="close-sidebar">&times;</button>
         </div>
 
+        <!-- Active Filters Tags Container -->
+        <div id="active-filters-tags" class="lc-active-tags-container"></div>
+
         <!-- Dynamic Filters Placeholder -->
         <div id="dynamic-filters-container">
             <!-- Built dynamically via Javascript -->
@@ -49,6 +52,12 @@
 
     .filter-body { margin-top: 15px; transition: opacity 0.2s ease-out; }
     .filter-header.collapsed + .filter-body { display: none; }
+
+    /* Active Filters Tags styling */
+    .lc-active-tags-container { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 5px 15px; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+    .lc-active-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 4px; font-size: 11px; font-weight: 600; color: #0369a1; cursor: pointer; transition: background 0.15s, color 0.15s; }
+    .lc-active-tag:hover { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+    .lc-active-tag .lc-tag-close { font-size: 13px; font-weight: bold; }
 
     /* Custom Dropdown select-with-search styling (prefixed with lc- to prevent leaks) */
     .lc-custom-dropdown { position: relative; width: 100%; box-sizing: border-box; }

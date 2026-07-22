@@ -1041,51 +1041,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUIWithFilteredProducts(filtered) {
         console.log("LabelConfigurator: Updating UI with filtered products count:", filtered.length);
 
-        // Check if there is a "q" parameter active in URL. If not, we do not hide any products.
         const urlParams = new URLSearchParams(window.location.search);
         const hasQ = urlParams.has('q');
 
-        // If we mapped theme cards successfully, use them directly (most reliable)
-        if (mappedThemeCards && mappedThemeCards.length > 0) {
-            let visibleCount = 0;
-            mappedThemeCards.forEach(item => {
-                const isMatched = !hasQ || filtered.some(fp => fp.id_product == item.product.id_product);
-
-                // Find bootstrap grid column or wrapper element to hide/show
-                let displayElement = item.el;
-                let parent = item.el.parentElement;
-                if (parent) {
-                    const classes = Array.from(parent.classList);
-                    const isCol = classes.some(c => c.startsWith('col-') || c === 'product-miniature-wrapper' || c.includes('product-miniature-wrapper'));
-                    if (isCol) {
-                        displayElement = parent;
-                    } else {
-                        let grandParent = parent.parentElement;
-                        if (grandParent) {
-                            const gpClasses = Array.from(grandParent.classList);
-                            if (gpClasses.some(c => c.startsWith('col-'))) {
-                                displayElement = grandParent;
-                            }
-                        }
-                    }
-                }
-
-                if (isMatched) {
-                    displayElement.style.setProperty('display', '', 'important');
-                    visibleCount++;
-                } else {
-                    displayElement.style.setProperty('display', 'none', 'important');
-                }
-            });
-
-            // Update all badge counts
-            document.querySelectorAll('.badge-count').forEach(el => {
-                el.textContent = hasQ ? visibleCount : products.length;
-            });
-            return;
-        }
-
-        // Fallback: search DOM if theme cards were not pre-mapped
         const cardSelectors = [
             '.product-miniature',
             '.js-product-miniature',
@@ -1108,38 +1066,58 @@ document.addEventListener('DOMContentLoaded', () => {
         if (foundCards.length > 0) {
             let visibleCount = 0;
             foundCards.forEach(cardEl => {
-                const productId = getProductIdFromCard(cardEl);
-                if (productId) {
-                    const isMatched = !hasQ || filtered.some(fp => fp.id_product == productId);
+                let productId = getProductIdFromCard(cardEl);
+                let matchedProduct = null;
 
-                    let displayElement = cardEl;
-                    let parent = cardEl.parentElement;
-                    if (parent) {
-                        const classes = Array.from(parent.classList);
-                        const isCol = classes.some(c => c.startsWith('col-') || c === 'product-miniature-wrapper' || c.includes('product-miniature-wrapper'));
-                        if (isCol) {
-                            displayElement = parent;
-                        } else {
-                            let grandParent = parent.parentElement;
-                            if (grandParent) {
-                                const gpClasses = Array.from(grandParent.classList);
-                                if (gpClasses.some(c => c.startsWith('col-'))) {
-                                    displayElement = grandParent;
-                                }
+                if (productId) {
+                    matchedProduct = products.find(p => p.id_product == productId);
+                }
+                if (!matchedProduct) {
+                    const anchors = cardEl.querySelectorAll('a[href]');
+                    const hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
+                    matchedProduct = products.find(p => {
+                        const pPath = getUrlPathname(p.url);
+                        return hrefs.some(href => href === pPath || href.endsWith(pPath) || pPath.endsWith(href));
+                    });
+                }
+
+                // If matchedProduct is found, check if it's in the filtered list.
+                // If it is NOT matched, and filters are active (hasQ), hide it because it doesn't belong to the category's filtered set.
+                let isMatched = !hasQ;
+                if (hasQ && matchedProduct) {
+                    isMatched = filtered.some(fp => fp.id_product == matchedProduct.id_product);
+                }
+
+                // Find the grid column wrapper element (bootstrap col-)
+                let displayElement = cardEl;
+                let parent = cardEl.parentElement;
+                if (parent) {
+                    const classes = Array.from(parent.classList);
+                    const isCol = classes.some(c => c.startsWith('col-') || c === 'product-miniature-wrapper' || c.includes('product-miniature-wrapper'));
+                    if (isCol) {
+                        displayElement = parent;
+                    } else {
+                        let grandParent = parent.parentElement;
+                        if (grandParent) {
+                            const gpClasses = Array.from(grandParent.classList);
+                            if (gpClasses.some(c => c.startsWith('col-'))) {
+                                displayElement = grandParent;
                             }
                         }
                     }
+                }
 
-                    if (isMatched) {
-                        displayElement.style.setProperty('display', '', 'important');
+                if (isMatched) {
+                    displayElement.style.setProperty('display', '', 'important');
+                    if (matchedProduct) {
                         visibleCount++;
-                    } else {
-                        displayElement.style.setProperty('display', 'none', 'important');
                     }
+                } else {
+                    displayElement.style.setProperty('display', 'none', 'important');
                 }
             });
 
-            // Update all badge counts
+            // Update all badge counts (both sidebar and main toolbar)
             document.querySelectorAll('.badge-count').forEach(el => {
                 el.textContent = hasQ ? visibleCount : products.length;
             });
@@ -1275,6 +1253,97 @@ document.addEventListener('DOMContentLoaded', () => {
     buildDynamicFilters();
     applyFilters();
 
+    // Dynamic Active Tags builder
+    function renderActiveFiltersTags() {
+        const tagsContainer = document.getElementById('active-filters-tags');
+        if (!tagsContainer) return;
+        tagsContainer.innerHTML = '';
+
+        let hasActiveTags = false;
+
+        for (const [fid, state] of Object.entries(filterStates)) {
+            const config = filtersConfig.find(f => f.id == fid || f.id === fid);
+            if (!config) continue;
+
+            const filterLabel = config.label;
+
+            if (state.type === 'checkboxes') {
+                state.selected.forEach(val => {
+                    hasActiveTags = true;
+                    const tag = document.createElement('div');
+                    tag.className = 'lc-active-tag';
+                    tag.title = `Usuń filtr: ${val}`;
+                    tag.innerHTML = `${filterLabel}: ${val} <span class="lc-tag-close">&times;</span>`;
+
+                    tag.addEventListener('click', () => {
+                        const idx = state.selected.indexOf(val);
+                        if (idx > -1) state.selected.splice(idx, 1);
+                        applyFiltersByRedirect();
+                    });
+
+                    tagsContainer.appendChild(tag);
+                });
+            } else if (state.type === 'slider' && fid !== 'price') {
+                if (state.currentMin > state.min || state.currentMax < state.max) {
+                    hasActiveTags = true;
+                    const tag = document.createElement('div');
+                    tag.className = 'lc-active-tag';
+                    tag.title = 'Zresetuj suwak';
+                    tag.innerHTML = `${filterLabel}: ${state.currentMin} - ${state.currentMax} <span class="lc-tag-close">&times;</span>`;
+
+                    tag.addEventListener('click', () => {
+                        state.currentMin = state.min;
+                        state.currentMax = state.max;
+                        applyFiltersByRedirect();
+                    });
+
+                    tagsContainer.appendChild(tag);
+                }
+            } else if (state.type === 'size_split') {
+                if (state.currentMinW > state.minW || state.currentMaxW < state.maxW ||
+                    state.currentMinH > state.minH || state.currentMaxH < state.maxH) {
+                    hasActiveTags = true;
+                    const tag = document.createElement('div');
+                    tag.className = 'lc-active-tag';
+                    tag.title = 'Zresetuj wymiary';
+                    tag.innerHTML = `${filterLabel}: ${state.currentMinW}-${state.currentMaxW} x ${state.currentMinH}-${state.currentMaxH} <span class="lc-tag-close">&times;</span>`;
+
+                    tag.addEventListener('click', () => {
+                        state.currentMinW = state.minW;
+                        state.currentMaxW = state.maxW;
+                        state.currentMinH = state.minH;
+                        state.currentMaxH = state.maxH;
+                        applyFiltersByRedirect();
+                    });
+
+                    tagsContainer.appendChild(tag);
+                }
+            } else if (fid === 'price') {
+                if (state.currentMin > state.min || state.currentMax < state.max) {
+                    hasActiveTags = true;
+                    const tag = document.createElement('div');
+                    tag.className = 'lc-active-tag';
+                    tag.title = 'Zresetuj cenę';
+                    tag.innerHTML = `${filterLabel}: ${state.currentMin.toFixed(2)} - ${state.currentMax.toFixed(2)} <span class="lc-tag-close">&times;</span>`;
+
+                    tag.addEventListener('click', () => {
+                        state.currentMin = state.min;
+                        state.currentMax = state.max;
+                        applyFiltersByRedirect();
+                    });
+
+                    tagsContainer.appendChild(tag);
+                }
+            }
+        }
+
+        if (!hasActiveTags) {
+            tagsContainer.style.display = 'none';
+        } else {
+            tagsContainer.style.display = 'flex';
+        }
+    }
+
     // Parse current URL 'q' parameter to populate selected filters on load
     function parseActiveFiltersFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -1383,6 +1452,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     parseActiveFiltersFromUrl();
     updateAllCheckboxesPills();
+    renderActiveFiltersTags();
 
     // Since products might be loaded asynchronously or theme cards rendered via other scripts, execute map retry after a short delay
     setTimeout(() => {

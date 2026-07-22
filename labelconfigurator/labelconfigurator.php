@@ -408,7 +408,7 @@ class LabelConfigurator extends Module implements WidgetInterface
             $sql = "SELECT DISTINCT p.id_product, pl.name, pl.link_rewrite
                     FROM "._DB_PREFIX_."product p
                     JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
-                    LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
+                    LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang AND pl.id_shop = $id_shop)
                     JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product)
                     WHERE ps.active = 1 AND cp.id_category IN ($category_list_sql)";
 
@@ -420,7 +420,7 @@ class LabelConfigurator extends Module implements WidgetInterface
             $sql = "SELECT DISTINCT p.id_product, pl.name, pl.link_rewrite
                     FROM "._DB_PREFIX_."product p
                     JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
-                    LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
+                    LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang AND pl.id_shop = $id_shop)
                     WHERE ps.active = 1";
             $products_raw = Db::getInstance()->executeS($sql);
         }
@@ -496,6 +496,10 @@ class LabelConfigurator extends Module implements WidgetInterface
     public function renderWidget($hookName = null, array $configuration = [])
     {
         $context = Context::getContext();
+        $id_lang = (int)$context->language->id;
+        if ($id_lang === 0) {
+            $id_lang = (int)Configuration::get('PS_LANG_DEFAULT');
+        }
         $id_category = (int)Tools::getValue('id_category');
         if ($id_category === 0) {
             $controller = $context->controller;
