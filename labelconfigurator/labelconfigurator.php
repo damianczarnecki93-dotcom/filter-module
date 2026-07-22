@@ -398,6 +398,13 @@ class LabelConfigurator extends Module implements WidgetInterface
             }
         }
 
+        if ($id_category === 0) {
+            $id_category = (int)Configuration::get('PS_HOME_CATEGORY');
+            if ($id_category === 0) {
+                $id_category = 2; // Default home category
+            }
+        }
+
         $products_raw = [];
         if ($id_category > 0) {
             $categories_pool = $this->getCategorySubcategories($id_category, $id_lang);
@@ -430,17 +437,26 @@ class LabelConfigurator extends Module implements WidgetInterface
         if (!empty($products_raw)) {
             $product_ids = array_column($products_raw, 'id_product');
 
-            // 1. Bulk fetch features
+            // 1. Bulk fetch features (supports both active language and default fallback language to guarantee lookups)
             $features_bulk = [];
+            $id_lang_default = (int)Configuration::get('PS_LANG_DEFAULT');
             $features_raw = Db::getInstance()->executeS("
-                SELECT fp.id_product, fp.id_feature, fvl.value
+                SELECT fp.id_product, fp.id_feature, fvl.value, fvl.id_lang
                 FROM "._DB_PREFIX_."feature_product fp
-                JOIN "._DB_PREFIX_."feature_value_lang fvl ON (fp.id_feature_value = fvl.id_feature_value AND fvl.id_lang = $id_lang)
-                WHERE fp.id_product IN (" . implode(',', array_map('intval', $product_ids)) . ")
+                JOIN "._DB_PREFIX_."feature_value_lang fvl ON (fp.id_feature_value = fvl.id_feature_value)
+                WHERE fvl.id_lang IN ($id_lang, $id_lang_default) AND fp.id_product IN (" . implode(',', array_map('intval', $product_ids)) . ")
             ");
             if ($features_raw) {
                 foreach ($features_raw as $f) {
-                    $features_bulk[(int)$f['id_product']]['f_' . (int)$f['id_feature']] = trim($f['value']);
+                    $pid = (int)$f['id_product'];
+                    $fid_key = 'f_' . (int)$f['id_feature'];
+                    $lang_of_val = (int)$f['id_lang'];
+                    $val = trim($f['value']);
+
+                    // Only set default if we don't have active lang yet, or overwrite with active lang
+                    if (!isset($features_bulk[$pid][$fid_key]) || $lang_of_val === $id_lang) {
+                        $features_bulk[$pid][$fid_key] = $val;
+                    }
                 }
             }
 

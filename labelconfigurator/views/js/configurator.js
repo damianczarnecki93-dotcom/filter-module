@@ -1445,8 +1445,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const paramName = part.substring(0, separatorIndex).replace(/\+/g, ' ').trim();
             const paramValuesJoined = part.substring(separatorIndex + 1).replace(/\+/g, ' ');
 
-            // Find matching filter config by label or original_name
-            const config = filtersConfig.find(f => f.original_name === paramName || f.label === paramName);
+            // Find matching filter config by label or original_name (case-insensitive)
+            const config = filtersConfig.find(f =>
+                (f.original_name && f.original_name.toLowerCase().trim() === paramName.toLowerCase().trim()) ||
+                (f.label && f.label.toLowerCase().trim() === paramName.toLowerCase().trim())
+            );
             if (!config) return;
 
             const fid = config.id;
@@ -1454,9 +1457,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!state) return;
 
             if (state.type === 'checkboxes') {
-                // Split back selected options
                 const values = paramValuesJoined.split('-');
-                state.selected = [...new Set(values)];
+                // Map each lowercase value from URL back to its exact case-sensitive value in state.allOptions
+                const mappedValues = values.map(val => {
+                    const matched = state.allOptions.find(opt => opt.toLowerCase().trim() === val.toLowerCase().trim());
+                    return matched || val;
+                });
+                state.selected = [...new Set(mappedValues)];
 
                 // Update Trigger Text dynamically
                 const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
