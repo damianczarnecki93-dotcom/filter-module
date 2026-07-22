@@ -364,7 +364,16 @@ class LabelConfigurator extends Module implements WidgetInterface
     {
         $context = Context::getContext();
         $id_lang = (int)$context->language->id;
+        if ($id_lang === 0) {
+            $id_lang = (int)Configuration::get('PS_LANG_DEFAULT');
+        }
         $id_shop = (int)$context->shop->id;
+        if ($id_shop === 0) {
+            $id_shop = (int)Configuration::get('PS_SHOP_DEFAULT');
+            if ($id_shop === 0) {
+                $id_shop = 1;
+            }
+        }
 
         // Dynamic Category Scoping via Global Context
         $id_category = (int)Tools::getValue('id_category');

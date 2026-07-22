@@ -94,6 +94,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return '';
     }
 
+    // Helper: Count products that have a specific option for a feature
+    function countProductsForOption(fid, opt) {
+        if (!products) return 0;
+        return products.filter(p => {
+            const val = getFeatureValue(p, fid);
+            return val === opt;
+        }).length;
+    }
+
     // Helper: parse numbers from string
     function parseNumber(val) {
         if (typeof val === 'number') return val;
