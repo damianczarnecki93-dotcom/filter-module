@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
     products = tryParse(rawDataEl.textContent || rawDataEl.innerHTML);
     filtersConfig = tryParse(rawConfigEl.textContent || rawConfigEl.innerHTML);
 
+    console.log("LabelConfigurator Raw Products Parsed:", products);
+    console.log("LabelConfigurator Raw Filters Config Parsed:", filtersConfig);
+
     // Bulletproof conversion to Array in case of PHP JSON associative array / object serialization
     if (products && !Array.isArray(products)) {
         products = Object.values(products);
@@ -281,6 +284,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper: Build dynamic filters based on configuration
     function buildDynamicFilters() {
+        console.log("LabelConfigurator: Building dynamic filters. Products available:", products.length);
+        console.log("Filters configuration active:", filtersConfig);
+
         dynamicFiltersContainer.innerHTML = '';
         filterStates = {};
 
@@ -293,6 +299,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const groupDiv = document.createElement('div');
             groupDiv.className = 'filter-group';
+
+            // Append groupDiv immediately to DOM so lookups succeed
+            dynamicFiltersContainer.appendChild(groupDiv);
 
             // Create Accordion Header
             const header = document.createElement('div');
@@ -337,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="range" id="max-price" value="${max}" min="${min}" max="${max}" step="0.01">
                     </div>
                 `;
-                setupSliderEvents('price', filterStates[fid], true);
+                setupSliderEvents(body, 'price', filterStates[fid], true);
 
             } else if (type === 'slider') {
                 const values = products.map(p => {
@@ -368,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="range" id="max-${fid}" value="${max}" min="${min}" max="${max}" step="1">
                     </div>
                 `;
-                setupSliderEvents(fid, filterStates[fid], false);
+                setupSliderEvents(body, fid, filterStates[fid], false);
 
             } else if (type === 'size_split') {
                 const widths = [];
@@ -427,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
-                setupSizeSplitEvents(fid, filterStates[fid]);
+                setupSizeSplitEvents(body, fid, filterStates[fid]);
 
             } else if (type === 'checkboxes') {
                 const uniqueValues = [...new Set(products.map(p => {
@@ -453,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }).join('');
 
                     body.innerHTML = `<div class="swatch-grid" id="grid-${fid}">${swatchesHtml}</div>`;
-                    setupSwatchEvents(fid, filterStates[fid]);
+                    setupSwatchEvents(body, fid, filterStates[fid]);
 
                 } else {
                     const inCategorySearchId = `search-cat-${fid}`;
@@ -502,11 +511,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.stopPropagation();
                     });
 
-                    setupPillsEvents(fid, filterStates[fid], inCategorySearchId, itemsContainerId, trigger);
+                    setupPillsEvents(body, fid, filterStates[fid], inCategorySearchId, itemsContainerId, trigger);
                 }
             }
-
-            dynamicFiltersContainer.appendChild(groupDiv);
         });
     }
 
@@ -517,17 +524,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function setupSliderEvents(id, state, isDecimal) {
-        const minRange = document.getElementById(`min-${id}`);
-        const maxRange = document.getElementById(`max-${id}`);
-        const minValInput = document.getElementById(`val-${id}-min`);
-        const maxValInput = document.getElementById(`val-${id}-max`);
+    function setupSliderEvents(parentEl, id, state, isDecimal) {
+        const minRange = parentEl.querySelector(`#min-${id}`);
+        const maxRange = parentEl.querySelector(`#max-${id}`);
+        const minValInput = parentEl.querySelector(`#val-${id}-min`);
+        const maxValInput = parentEl.querySelector(`#val-${id}-max`);
 
         if (!minRange || !maxRange || !minValInput || !maxValInput) return;
-
-        // Ensure proper overlapping thumbs interaction
-        minRange.style.pointerEvents = 'auto';
-        maxRange.style.pointerEvents = 'auto';
 
         function updateRangeOverlap(e) {
             if (e.target === minRange) {
@@ -586,17 +589,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function setupSizeSplitEvents(id, state) {
+    function setupSizeSplitEvents(parentEl, id, state) {
         // Width
-        const minWRange = document.getElementById(`min-${id}-w`);
-        const maxWRange = document.getElementById(`max-${id}-w`);
-        const minWValInput = document.getElementById(`val-${id}-w-min`);
-        const maxWValInput = document.getElementById(`val-${id}-w-max`);
+        const minWRange = parentEl.querySelector(`#min-${id}-w`);
+        const maxWRange = parentEl.querySelector(`#max-${id}-w`);
+        const minWValInput = parentEl.querySelector(`#val-${id}-w-min`);
+        const maxWValInput = parentEl.querySelector(`#val-${id}-w-max`);
 
         if (minWRange && maxWRange && minWValInput && maxWValInput) {
-            minWRange.style.pointerEvents = 'auto';
-            maxWRange.style.pointerEvents = 'auto';
-
             minWRange.addEventListener('input', (e) => {
                 minWRange.style.zIndex = "10";
                 maxWRange.style.zIndex = "9";
@@ -645,15 +645,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Height
-        const minHRange = document.getElementById(`min-${id}-h`);
-        const maxHRange = document.getElementById(`max-${id}-h`);
-        const minHValInput = document.getElementById(`val-${id}-h-min`);
-        const maxHValInput = document.getElementById(`val-${id}-h-max`);
+        const minHRange = parentEl.querySelector(`#min-${id}-h`);
+        const maxHRange = parentEl.querySelector(`#max-${id}-h`);
+        const minHValInput = parentEl.querySelector(`#val-${id}-h-min`);
+        const maxHValInput = parentEl.querySelector(`#val-${id}-h-max`);
 
         if (minHRange && maxHRange && minHValInput && maxHValInput) {
-            minHRange.style.pointerEvents = 'auto';
-            maxHRange.style.pointerEvents = 'auto';
-
             minHRange.addEventListener('input', (e) => {
                 minHRange.style.zIndex = "10";
                 maxHRange.style.zIndex = "9";
@@ -702,8 +699,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function setupSwatchEvents(id, state) {
-        const grid = document.getElementById(`grid-${id}`);
+    function setupSwatchEvents(parentEl, id, state) {
+        const grid = parentEl.querySelector(`#grid-${id}`);
         if (!grid) return;
 
         grid.addEventListener('click', (e) => {
@@ -852,9 +849,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function setupPillsEvents(id, state, searchInputId, containerId, trigger) {
-        const searchInput = document.getElementById(searchInputId);
-        const container = document.getElementById(containerId);
+    function setupPillsEvents(parentEl, id, state, searchInputId, containerId, trigger) {
+        const searchInput = parentEl.querySelector(`#${searchInputId}`);
+        const container = parentEl.querySelector(`#${containerId}`);
 
         if (!searchInput || !container) return;
 
@@ -925,8 +922,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const label = filtersConfig.find(f => f.id == fid || f.id === fid)?.label || '';
                 const isColor = /kolor|color|barwa/i.test(label);
                 if (!isColor) {
-                    const container = document.getElementById(`list-${fid}`);
-                    const trigger = document.getElementById(`trigger-${fid}`);
+                    const container = dynamicFiltersContainer.querySelector(`#list-${fid}`);
+                    const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
                     if (container) {
                         updatePillsRender(fid, state, container, trigger);
                     }

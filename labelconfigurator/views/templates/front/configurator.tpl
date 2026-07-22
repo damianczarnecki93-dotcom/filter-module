@@ -110,7 +110,7 @@
     .manual-input[type=number] { -moz-appearance: textfield; }
 
     .dual-slider { position: relative; height: 20px; margin: 10px 0 15px; }
-    .dual-slider input[type="range"] { position: absolute; width: 100%; top: 0; left: 0; -webkit-appearance: none; appearance: none; background: transparent; pointer-events: auto; margin: 0; z-index: 3; height: 20px; }
+    .dual-slider input[type="range"] { position: absolute; width: 100%; top: 0; left: 0; -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; margin: 0; z-index: 3; height: 20px; }
     .dual-slider::before { content: ''; position: absolute; top: 7px; left: 0; right: 0; height: 6px; background: #e2e8f0; border-radius: 3px; z-index: 1; }
     .dual-slider input[type="range"]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 18px; height: 18px; background: #2c7da0; border-radius: 50%; cursor: pointer; position: relative; z-index: 4; margin-top: 1px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); border: 2px solid #fff; transition: background 0.15s; }
     .dual-slider input[type="range"]::-webkit-slider-thumb:hover { background: #1f5d78; }
