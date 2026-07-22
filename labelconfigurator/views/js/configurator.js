@@ -128,28 +128,114 @@ document.addEventListener('DOMContentLoaded', () => {
     // Custom Swatch style generator (returns CSS string for element background / border)
     function getSwatchStyle(name) {
         if (!name) return 'background: #e2e8f0;';
-        const clean = name.toLowerCase().trim();
+        const clean = name.toLowerCase().replace(/\s\s+/g, ' ').trim();
 
-        // 1. Transparent (checkerboard pattern)
-        if (clean === 'transparentny' || clean === 'transparentna' || clean === 'transparent' || clean === 'przezroczysty' || clean === 'przezroczysta') {
-            return 'background-color: #fff; background-image: linear-gradient(45deg, #cbd5e1 25%, transparent 25%, transparent 75%, #cbd5e1 75%, #cbd5e1), linear-gradient(45deg, #cbd5e1 25%, #fff 25%, #fff 75%, #cbd5e1 75%, #cbd5e1); background-size: 8px 8px; background-position: 0 0, 4px 4px;';
+        // Accurate user request custom color swatches assignments
+        if (clean === 'transparentny matowy' || clean === 'transparentny mat' || clean === 'matowy transparentny') {
+            return 'background-color: #f1f5f9; background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%, #e2e8f0), linear-gradient(45deg, #e2e8f0 25%, #f1f5f9 25%, #f1f5f9 75%, #e2e8f0 75%, #e2e8f0); background-size: 8px 8px; background-position: 0 0, 4px 4px; border: 1px solid #cbd5e1;';
         }
 
-        // 2. Biały mat (pure white with border)
-        if (clean === 'biały mat' || clean === 'biała matowa' || clean === 'bialy mat' || clean === 'white matte') {
+        if (clean === 'transparentny błyszczący' || clean === 'transparentny blyszczacy' || clean === 'transparentny błysk') {
+            return 'background-color: #ffffff; background-image: linear-gradient(45deg, #cbd5e1 25%, transparent 25%, transparent 75%, #cbd5e1 75%, #cbd5e1), linear-gradient(45deg, #cbd5e1 25%, #ffffff 25%, #ffffff 75%, #cbd5e1 75%, #cbd5e1); background-size: 8px 8px; background-position: 0 0, 4px 4px; border: 1px solid #94a3b8; box-shadow: inset 0 0 4px rgba(255,255,255,0.8);';
+        }
+
+        if (clean === 'biały matowy' || clean === 'biały mat' || clean === 'bialy matowy') {
             return 'background: #ffffff; border: 1px solid #cbd5e1;';
         }
 
-        // 3. Biały błysk (diagonal creamy-white gradient)
-        if (clean === 'biały błysk' || clean === 'biała błyszcząca' || clean === 'bialy blysk' || clean === 'white glossy') {
-            return 'background: linear-gradient(135deg, #fffde6 50%, #ffffff 50%); border: 1px solid #cbd5e1;';
+        if (clean === 'biały błyszczący' || clean === 'biały błysk' || clean === 'bialy blyszczacy') {
+            return 'background: linear-gradient(135deg, #fffdf0 50%, #ffffff 50%); border: 1px solid #cbd5e1;';
         }
 
-        // 4. White / Biały (standard)
-        if (clean === 'biały' || clean === 'biała' || clean === 'white') {
-            return 'background: #ffffff; border: 1px solid #cbd5e1;';
+        if (clean === 'żółty' || clean === 'zolty') {
+            return 'background: #facc15;';
         }
 
+        if (clean === 'czerwony neonowy' || clean === 'czerwony neon' || clean === 'neonowy czerwony') {
+            return 'background: #ff0055; box-shadow: 0 0 8px #ff0055;';
+        }
+
+        if (clean === 'żółty neonowy' || clean === 'neonowy zolty' || clean === 'żółty neon') {
+            return 'background: #ccff00; box-shadow: 0 0 8px #ccff00;';
+        }
+
+        if (clean === 'pomarańczowy neonowy' || clean === 'pomarańczowy neon' || clean === 'neonowy pomaranczowy') {
+            return 'background: #ff5500; box-shadow: 0 0 8px #ff5500;';
+        }
+
+        if (clean === 'zielony neonowy' || clean === 'zielony neon' || clean === 'neonowy zielony') {
+            return 'background: #00ff66; box-shadow: 0 0 8px #00ff66;';
+        }
+
+        if (clean === 'zielony') {
+            return 'background: #16a34a;';
+        }
+
+        if (clean === 'niebieski') {
+            return 'background: #2563eb;';
+        }
+
+        if (clean === 'czerwony') {
+            return 'background: #dc2626;';
+        }
+
+        if (clean === 'różowy' || clean === 'rozowy') {
+            return 'background: #db2777;';
+        }
+
+        if (clean === 'ciemnoniebieski' || clean === 'ciemny niebieski') {
+            return 'background: #1e3a8a;';
+        }
+
+        if (clean === 'ciemnozielony' || clean === 'ciemny zielony') {
+            return 'background: #14532d;';
+        }
+
+        if (clean === 'popielaty' || clean === 'popiel') {
+            return 'background: #94a3b8;';
+        }
+
+        if (clean === 'czarny' || clean === 'czarna') {
+            return 'background: #111827;';
+        }
+
+        if (clean === 'złoty błyszczący' || clean === 'zloty blyszczacy' || clean === 'złoty') {
+            return 'background: linear-gradient(135deg, #fef08a 0%, #ca8a04 50%, #fef08a 100%); border: 1px solid #a16207;';
+        }
+
+        if (clean === 'srebrny błyszczący' || clean === 'srebrny blyszczacy' || clean === 'srebrny') {
+            return 'background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 50%, #f1f5f9 100%); border: 1px solid #94a3b8;';
+        }
+
+        if (clean === 'srebrny matowy' || clean === 'srebrny mat') {
+            return 'background: #94a3b8; border: 1px solid #475569;';
+        }
+
+        if (clean === 'mix kolorów' || clean === 'mix' || clean === 'wielokolorowy') {
+            return 'background: linear-gradient(45deg, #f43f5e, #3b82f6, #10b981, #eab308);';
+        }
+
+        if (clean === 'jasnobrązowy' || clean === 'jasny brazowy') {
+            return 'background: #b45309;';
+        }
+
+        if (clean === 'granatowy') {
+            return 'background: #0f172a;';
+        }
+
+        if (clean === 'błękitny' || clean === 'blekitny') {
+            return 'background: #38bdf8;';
+        }
+
+        if (clean === 'jasnozielony' || clean === 'jasny zielony') {
+            return 'background: #4ade80;';
+        }
+
+        if (clean === 'naturalny brązowy' || clean === 'naturalny brazowy') {
+            return 'background: #78350f;';
+        }
+
+        // Generic color mapping fallbacks
         const colorMap = {
             'czarny': '#111827', 'czarna': '#111827', 'black': '#111827',
             'szary': '#6b7280', 'szara': '#6b7280', 'gray': '#6b7280', 'grey': '#6b7280',
@@ -782,43 +868,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     queryParts.push(`${filterLabel.replace(/[\s\t]+/g, '+')}-${valuesJoined}`);
                 }
             } else if (state.type === 'slider') {
-                // Find all product features values that match this range to pass them as exact option values
-                const matchedValues = [];
-                products.forEach(p => {
-                    const featVal = getFeatureValue(p, fid);
-                    if (featVal) {
-                        const num = parseNumber(featVal);
-                        if (num >= state.currentMin && num <= state.currentMax) {
-                            if (!matchedValues.includes(featVal)) {
-                                matchedValues.push(featVal);
+                // Check if slider range has been changed from initial limits
+                if (state.currentMin > state.min || state.currentMax < state.max) {
+                    // Find all product features values that match this range to pass them as exact option values
+                    const matchedValues = [];
+                    products.forEach(p => {
+                        const featVal = getFeatureValue(p, fid);
+                        if (featVal) {
+                            const num = parseNumber(featVal);
+                            if (num >= state.currentMin && num <= state.currentMax) {
+                                if (!matchedValues.includes(featVal)) {
+                                    matchedValues.push(featVal);
+                                }
                             }
                         }
-                    }
-                });
+                    });
 
-                if (matchedValues.length > 0) {
-                    const valuesJoined = matchedValues.map(val => val.replace(/[\s\t]+/g, '+')).join('-');
-                    queryParts.push(`${filterLabel.replace(/[\s\t]+/g, '+')}-${valuesJoined}`);
+                    if (matchedValues.length > 0) {
+                        const valuesJoined = matchedValues.map(val => val.replace(/[\s\t]+/g, '+')).join('-');
+                        queryParts.push(`${filterLabel.replace(/[\s\t]+/g, '+')}-${valuesJoined}`);
+                    }
                 }
             } else if (state.type === 'size_split') {
-                // Match the 2D size split dimensions to corresponding existing values
-                const matchedValues = [];
-                products.forEach(p => {
-                    const featVal = getFeatureValue(p, fid);
-                    if (featVal) {
-                        const size = parseSizeSplit(featVal);
-                        if (size.w >= state.currentMinW && size.w <= state.currentMaxW &&
-                            size.h >= state.currentMinH && size.h <= state.currentMaxH) {
-                            if (!matchedValues.includes(featVal)) {
-                                matchedValues.push(featVal);
+                // Check if dimensions range has been changed from initial limits
+                if (state.currentMinW > state.minW || state.currentMaxW < state.maxW ||
+                    state.currentMinH > state.minH || state.currentMaxH < state.maxH) {
+                    // Match the 2D size split dimensions to corresponding existing values
+                    const matchedValues = [];
+                    products.forEach(p => {
+                        const featVal = getFeatureValue(p, fid);
+                        if (featVal) {
+                            const size = parseSizeSplit(featVal);
+                            if (size.w >= state.currentMinW && size.w <= state.currentMaxW &&
+                                size.h >= state.currentMinH && size.h <= state.currentMaxH) {
+                                if (!matchedValues.includes(featVal)) {
+                                    matchedValues.push(featVal);
+                                }
                             }
                         }
-                    }
-                });
+                    });
 
-                if (matchedValues.length > 0) {
-                    const valuesJoined = matchedValues.map(val => val.replace(/[\s\t]+/g, '+')).join('-');
-                    queryParts.push(`${filterLabel.replace(/[\s\t]+/g, '+')}-${valuesJoined}`);
+                    if (matchedValues.length > 0) {
+                        const valuesJoined = matchedValues.map(val => val.replace(/[\s\t]+/g, '+')).join('-');
+                        queryParts.push(`${filterLabel.replace(/[\s\t]+/g, '+')}-${valuesJoined}`);
+                    }
                 }
             } else if (fid === 'price') {
                 // Check if price range has been changed from initial limits

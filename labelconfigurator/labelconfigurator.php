@@ -410,8 +410,7 @@ class LabelConfigurator extends Module implements WidgetInterface
                     JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
                     LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
                     JOIN "._DB_PREFIX_."category_product cp ON (p.id_product = cp.id_product)
-                    WHERE ps.active = 1 AND cp.id_category IN ($category_list_sql)
-                    LIMIT 300";
+                    WHERE ps.active = 1 AND cp.id_category IN ($category_list_sql)";
 
             $products_raw = Db::getInstance()->executeS($sql);
         }
@@ -422,7 +421,7 @@ class LabelConfigurator extends Module implements WidgetInterface
                     FROM "._DB_PREFIX_."product p
                     JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
                     LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang)
-                    WHERE ps.active = 1 LIMIT 300";
+                    WHERE ps.active = 1";
             $products_raw = Db::getInstance()->executeS($sql);
         }
 
