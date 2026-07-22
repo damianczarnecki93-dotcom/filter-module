@@ -184,6 +184,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return { w: single, h: single };
     }
 
+    // Keep track of the initial cards per page limit to estimate real pagination
+    let initialCardsCount = 12;
+    const initialCards = document.querySelectorAll('.product-miniature, .js-product-miniature');
+    if (initialCards && initialCards.length > 0) {
+        initialCardsCount = initialCards.length;
+    }
+
     // Custom Swatch style generator (returns CSS string for element background / border)
     function getSwatchStyle(name) {
         if (!name) return 'background: #e2e8f0;';
@@ -953,16 +960,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (state.type === 'size_split') {
                 // Check if dimensions range has been changed from initial limits
-                if (state.currentMinW > state.minW || state.currentMaxW < state.maxW ||
-                    state.currentMinH > state.minH || state.currentMaxH < state.maxH) {
-                    // Match the 2D size split dimensions to corresponding existing values
+                // The user says: "wymiary etykiet średnio się wyszukują - nie zmieniaj podanego przedzialu wymiaru nie zależnie od drugiego wymiaru."
+                // This means when they move width slider, we only filter by width regardless of height (and vice versa) instead of BOTH ranges must be satisfied.
+                const isWidthChanged = state.currentMinW > state.minW || state.currentMaxW < state.maxW;
+                const isHeightChanged = state.currentMinH > state.minH || state.currentMaxH < state.maxH;
+
+                if (isWidthChanged || isHeightChanged) {
                     const matchedValues = [];
                     products.forEach(p => {
                         const featVal = getFeatureValue(p, fid);
                         if (featVal) {
                             const size = parseSizeSplit(featVal);
-                            if (size.w >= state.currentMinW && size.w <= state.currentMaxW &&
-                                size.h >= state.currentMinH && size.h <= state.currentMaxH) {
+                            let matchW = true;
+                            let matchH = true;
+
+                            if (isWidthChanged) {
+                                matchW = size.w >= state.currentMinW && size.w <= state.currentMaxW;
+                            }
+                            if (isHeightChanged) {
+                                matchH = size.h >= state.currentMinH && size.h <= state.currentMaxH;
+                            }
+
+                            // If we filter only changed ranges independently:
+                            if (matchW && matchH) {
                                 if (!matchedValues.includes(featVal)) {
                                     matchedValues.push(featVal);
                                 }
@@ -1121,6 +1141,56 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.badge-count').forEach(el => {
                 el.textContent = hasQ ? visibleCount : products.length;
             });
+
+            // Update real pagination visible page items
+            if (hasQ) {
+                updatePaginationUI(visibleCount);
+            }
+        }
+    }
+
+    function updatePaginationUI(visibleCount) {
+        const paginationContainer = document.querySelector('.pagination') || document.querySelector('.pagination-wrapper') || document.querySelector('.page-list');
+        if (!paginationContainer) return;
+
+        const totalPages = Math.ceil(visibleCount / initialCardsCount) || 1;
+
+        const pageItems = paginationContainer.querySelectorAll('li');
+        if (pageItems && pageItems.length > 0) {
+            pageItems.forEach(li => {
+                const link = li.querySelector('a');
+                if (!link) return;
+
+                const text = link.textContent.trim();
+                const pageNum = parseInt(text);
+
+                if (!isNaN(pageNum)) {
+                    if (pageNum > totalPages) {
+                        li.style.display = 'none';
+                    } else {
+                        li.style.display = '';
+                    }
+                } else {
+                    // Next/Prev arrows
+                    if (text.includes('Następny') || text.includes('Next') || link.getAttribute('rel') === 'next') {
+                        if (totalPages <= 1) {
+                            li.style.display = 'none';
+                        } else {
+                            li.style.display = '';
+                        }
+                    }
+                    if (text.includes('Poprzedni') || text.includes('Prev') || link.getAttribute('rel') === 'prev') {
+                        li.style.display = '';
+                    }
+                }
+            });
+        }
+
+        // If only 1 page remains, we hide the whole pagination container for elegance
+        if (totalPages <= 1) {
+            paginationContainer.style.setProperty('display', 'none', 'important');
+        } else {
+            paginationContainer.style.setProperty('display', '', 'important');
         }
     }
 
