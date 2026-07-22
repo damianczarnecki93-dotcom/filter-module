@@ -1323,6 +1323,23 @@ document.addEventListener('DOMContentLoaded', () => {
     buildDynamicFilters();
     applyFilters();
 
+    // Hide entire configurator sidebar if there are no filters rendered (e.g. no products have active config features in this category)
+    function hideConfiguratorIfEmpty() {
+        const filters = dynamicFiltersContainer.querySelectorAll('.filter-group');
+        if (!filters || filters.length === 0) {
+            console.log("LabelConfigurator: No active filters rendered, hiding sidebar entirely.");
+            const sidebarEl = document.getElementById('sidebar') || appEl.querySelector('#sidebar');
+            if (sidebarEl) {
+                sidebarEl.style.setProperty('display', 'none', 'important');
+            }
+            if (appEl) {
+                appEl.style.setProperty('display', 'none', 'important');
+            }
+        }
+    }
+
+    hideConfiguratorIfEmpty();
+
     // Dynamic Active Tags builder
     function renderActiveFiltersTags() {
         const tagsContainer = document.getElementById('active-filters-tags');
