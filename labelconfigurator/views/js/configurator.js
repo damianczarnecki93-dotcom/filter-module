@@ -161,12 +161,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return color;
     }
 
-    // Helper: Normalize URL pathname to match reliably
+    // Helper: Normalize URL pathname to match reliably (stripping language slugs like /pl/)
     function getUrlPathname(urlStr) {
         if (!urlStr) return '';
         try {
-            const u = new URL(urlStr, window.location.origin);
-            return u.pathname;
+            let path = '';
+            if (urlStr.startsWith('/') || !urlStr.includes('://')) {
+                path = urlStr.split('?')[0].split('#')[0];
+            } else {
+                const u = new URL(urlStr, window.location.origin);
+                path = u.pathname;
+            }
+            // Strip language slug if present (e.g. /pl/ or /en/ or /de/)
+            path = path.replace(/^\/[a-z]{2}\//i, '/');
+            return path;
         } catch(e) {
             return urlStr;
         }
@@ -207,6 +215,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (matchId) return parseInt(matchId[1]);
             }
         }
+
+        // 5. Check if the element itself has an ID or classes that can identify it
+        if (cardEl.id) {
+            const matchId = cardEl.id.match(/(?:id_product|id-product|product-id|product)-(\d+)/i);
+            if (matchId) return parseInt(matchId[1]);
+        }
         return null;
     }
 
@@ -218,7 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
             '.product-miniature-wrapper',
             '.product-preview',
             'article.product-miniature',
-            '.products .product'
+            '.products .product',
+            '.products article'
         ];
 
         let foundCards = [];
@@ -230,6 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        console.log("LabelConfigurator: Found card elements on page:", foundCards.length);
+
         if (foundCards.length === 0) {
             isCategoryLiveFilter = false;
             return;
@@ -237,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         mappedThemeCards = [];
         foundCards.forEach(cardEl => {
-            let productId = cardEl.getAttribute('data-id-product');
+            let productId = getProductIdFromCard(cardEl);
             const anchors = cardEl.querySelectorAll('a[href]');
             let hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
 
@@ -248,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!matchedProduct && hrefs.length > 0) {
                 matchedProduct = products.find(p => {
                     const pPath = getUrlPathname(p.url);
-                    return hrefs.includes(pPath);
+                    return hrefs.some(href => href === pPath || href.endsWith(pPath) || pPath.endsWith(href));
                 });
             }
 
@@ -257,8 +274,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     el: cardEl,
                     product: matchedProduct
                 });
+            } else {
+                console.warn("LabelConfigurator: Card element has no matching product in JSON. ID:", productId, "Hrefs:", hrefs);
             }
         });
+
+        console.log("LabelConfigurator: Successfully mapped theme cards:", mappedThemeCards.length);
 
         if (mappedThemeCards.length > 0) {
             isCategoryLiveFilter = true;
@@ -787,14 +808,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUIWithFilteredProducts(filtered) {
-        // Native product card selectors for PrestaShop 1.7 theme
+        console.log("LabelConfigurator: Updating UI with filtered products count:", filtered.length);
+
+        // If we mapped theme cards successfully, use them directly (most reliable)
+        if (mappedThemeCards && mappedThemeCards.length > 0) {
+            let visibleCount = 0;
+            mappedThemeCards.forEach(item => {
+                const isMatched = filtered.some(fp => fp.id_product == item.product.id_product);
+
+                // Find bootstrap grid column or wrapper element to hide/show
+                let displayElement = item.el;
+                let parent = item.el.parentElement;
+                if (parent) {
+                    const classes = Array.from(parent.classList);
+                    const isCol = classes.some(c => c.startsWith('col-') || c === 'product-miniature-wrapper' || c.includes('product-miniature-wrapper'));
+                    if (isCol) {
+                        displayElement = parent;
+                    } else {
+                        let grandParent = parent.parentElement;
+                        if (grandParent) {
+                            const gpClasses = Array.from(grandParent.classList);
+                            if (gpClasses.some(c => c.startsWith('col-'))) {
+                                displayElement = grandParent;
+                            }
+                        }
+                    }
+                }
+
+                if (isMatched) {
+                    displayElement.style.setProperty('display', '', 'important');
+                    visibleCount++;
+                } else {
+                    displayElement.style.setProperty('display', 'none', 'important');
+                }
+            });
+
+            // Update all badge counts
+            document.querySelectorAll('.badge-count').forEach(el => {
+                el.textContent = visibleCount;
+            });
+            return;
+        }
+
+        // Fallback: search DOM if theme cards were not pre-mapped
         const cardSelectors = [
             '.product-miniature',
             '.js-product-miniature',
             '.product-miniature-wrapper',
             '.product-preview',
             'article.product-miniature',
-            '.products .product'
+            '.products .product',
+            '.products article'
         ];
 
         let foundCards = [];
@@ -813,7 +877,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (productId) {
                     const isMatched = filtered.some(fp => fp.id_product == productId);
 
-                    // Find the grid column wrapper element (bootstrap col-)
                     let displayElement = cardEl;
                     let parent = cardEl.parentElement;
                     if (parent) {
@@ -822,7 +885,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (isCol) {
                             displayElement = parent;
                         } else {
-                            // Go one level higher if needed (sometimes miniatures have inner wraps)
                             let grandParent = parent.parentElement;
                             if (grandParent) {
                                 const gpClasses = Array.from(grandParent.classList);
@@ -834,15 +896,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (isMatched) {
-                        displayElement.style.display = '';
+                        displayElement.style.setProperty('display', '', 'important');
                         visibleCount++;
                     } else {
-                        displayElement.style.display = 'none';
+                        displayElement.style.setProperty('display', 'none', 'important');
                     }
                 }
             });
 
-            // Update all badge counts (both sidebar and main toolbar)
+            // Update all badge counts
             document.querySelectorAll('.badge-count').forEach(el => {
                 el.textContent = visibleCount;
             });
@@ -965,4 +1027,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial builder execution
     buildDynamicFilters();
     applyFilters();
+
+    // Since products might be loaded asynchronously or theme cards rendered via other scripts, execute map retry after a short delay
+    setTimeout(() => {
+        console.log("LabelConfigurator: Retrying theme products detection...");
+        detectThemeProducts();
+        applyFilters();
+    }, 1500);
 });
