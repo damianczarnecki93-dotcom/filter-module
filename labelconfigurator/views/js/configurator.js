@@ -1454,6 +1454,46 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAllCheckboxesPills();
     renderActiveFiltersTags();
 
+    // Preserve 'q' parameter when clicking on pagination links or sort order links
+    function preserveQueryParamOnNavigation() {
+        document.addEventListener('click', (e) => {
+            const anchor = e.target.closest('a[href]');
+            if (!anchor) return;
+
+            const href = anchor.getAttribute('href');
+            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const qVal = urlParams.get('q');
+            if (!qVal) return;
+
+            try {
+                // If it looks like a pagination link (has page=, class pagination or page-link) or sort link
+                const isPagination = href.includes('page=') || anchor.classList.contains('page-link') || anchor.closest('.pagination') || anchor.closest('.js-search-link');
+                const isSort = href.includes('order=') || anchor.classList.contains('select-list') || anchor.closest('.products-sort-order');
+
+                if (isPagination || isSort) {
+                    e.preventDefault();
+
+                    let targetUrl;
+                    if (href.startsWith('/') || !href.includes('://')) {
+                        targetUrl = new URL(href, window.location.origin);
+                    } else {
+                        targetUrl = new URL(href);
+                    }
+
+                    targetUrl.searchParams.set('q', qVal);
+                    console.log("LabelConfigurator: Preserving 'q' on navigation to:", targetUrl.toString());
+                    window.location.href = targetUrl.toString();
+                }
+            } catch (err) {
+                console.error("LabelConfigurator: Failed to append q param to link:", err);
+            }
+        });
+    }
+
+    preserveQueryParamOnNavigation();
+
     // Since products might be loaded asynchronously or theme cards rendered via other scripts, execute map retry after a short delay
     setTimeout(() => {
         console.log("LabelConfigurator: Retrying theme products detection...");
