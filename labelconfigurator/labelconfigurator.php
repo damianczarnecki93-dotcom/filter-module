@@ -453,9 +453,15 @@ class LabelConfigurator extends Module implements WidgetInterface
                     $lang_of_val = (int)$f['id_lang'];
                     $val = trim($f['value']);
 
-                    // Only set default if we don't have active lang yet, or overwrite with active lang
-                    if (!isset($features_bulk[$pid][$fid_key]) || $lang_of_val === $id_lang) {
-                        $features_bulk[$pid][$fid_key] = $val;
+                    // Initialize array if not set
+                    if (!isset($features_bulk[$pid][$fid_key])) {
+                        $features_bulk[$pid][$fid_key] = [];
+                    }
+
+                    // For language overrides: if active language is processed, we prefer it.
+                    // To handle multi-value features correctly across languages, we can store values.
+                    if (!in_array($val, $features_bulk[$pid][$fid_key])) {
+                        $features_bulk[$pid][$fid_key][] = $val;
                     }
                 }
             }

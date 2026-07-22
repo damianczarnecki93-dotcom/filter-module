@@ -130,24 +130,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Helper: Safely retrieve feature values without any null pointer exceptions
-    function getFeatureValue(product, fid) {
-        if (!product || !product.features) return '';
+    function getFeatureValues(product, fid) {
+        if (!product || !product.features) return [];
         const features = product.features;
         const key = 'f_' + fid;
         if (typeof features === 'object' && features !== null) {
-            if (features[key] !== undefined && features[key] !== null) {
-                return String(features[key]).trim();
+            const val = features[key];
+            if (Array.isArray(val)) {
+                return val.map(v => String(v).trim());
+            } else if (val !== undefined && val !== null) {
+                const strVal = String(val).trim();
+                if (strVal.startsWith('[') && strVal.endsWith(']')) {
+                    try {
+                        const parsed = JSON.parse(strVal);
+                        if (Array.isArray(parsed)) {
+                            return parsed.map(v => String(v).trim());
+                        }
+                    } catch (e) {}
+                }
+                return [strVal];
             }
         }
-        return '';
+        return [];
+    }
+
+    function getFeatureValue(product, fid) {
+        const vals = getFeatureValues(product, fid);
+        return vals.length > 0 ? vals[0] : '';
     }
 
     // Helper: Count products that have a specific option for a feature
     function countProductsForOption(fid, opt) {
         if (!products) return 0;
         return products.filter(p => {
-            const val = getFeatureValue(p, fid);
-            return val === opt;
+            const vals = getFeatureValues(p, fid);
+            return vals.includes(opt);
         }).length;
     }
 
@@ -631,9 +648,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupSizeSplitEvents(body, fid, filterStates[fid]);
 
             } else if (type === 'checkboxes') {
-                const uniqueValues = [...new Set(products.map(p => {
-                    return getFeatureValue(p, fid);
-                }).filter(Boolean))].sort();
+                const allVals = [];
+                products.forEach(p => {
+                    getFeatureValues(p, fid).forEach(v => {
+                        if (v && !allVals.includes(v)) {
+                            allVals.push(v);
+                        }
+                    });
+                });
+                const uniqueValues = allVals.sort();
 
                 filterStates[fid] = {
                     type: 'checkboxes',
@@ -1031,22 +1054,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         return false;
                     }
                 } else if (state.type === 'slider') {
-                    const featVal = getFeatureValue(p, fid);
-                    const num = parseNumber(featVal);
-                    if (num < state.currentMin || num > state.currentMax) {
-                        return false;
-                    }
+                    const featVals = getFeatureValues(p, fid);
+                    if (featVals.length === 0) return false;
+                    const hasMatch = featVals.some(v => {
+                        const num = parseNumber(v);
+                        return num >= state.currentMin && num <= state.currentMax;
+                    });
+                    if (!hasMatch) return false;
                 } else if (state.type === 'size_split') {
-                    const featVal = getFeatureValue(p, fid);
-                    const size = parseSizeSplit(featVal);
-                    if (size.w < state.currentMinW || size.w > state.currentMaxW ||
-                        size.h < state.currentMinH || size.h > state.currentMaxH) {
-                        return false;
-                    }
+                    const featVals = getFeatureValues(p, fid);
+                    if (featVals.length === 0) return false;
+                    const hasMatch = featVals.some(v => {
+                        const size = parseSizeSplit(v);
+                        return size.w >= state.currentMinW && size.w <= state.currentMaxW &&
+                               size.h >= state.currentMinH && size.h <= state.currentMaxH;
+                    });
+                    if (!hasMatch) return false;
                 } else if (state.type === 'checkboxes') {
                     if (state.selected.length > 0) {
-                        const featVal = getFeatureValue(p, fid);
-                        if (!featVal || !state.selected.includes(featVal)) {
+                        const featVals = getFeatureValues(p, fid);
+                        const hasMatch = featVals.some(v => state.selected.includes(v));
+                        if (!hasMatch) {
                             return false;
                         }
                     }
@@ -1083,12 +1111,115 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const actualRenderedCount = foundCards.length;
+        if (foundCards.length > 0) {
+            let visibleCount = 0;
+            foundCards.forEach(cardEl => {
+                let productId = getProductIdFromCard(cardEl);
+                let matchedProduct = null;
 
-        // Update all badge counts (both sidebar and main toolbar) to show exact correct product count
-        document.querySelectorAll('.badge-count').forEach(el => {
-            el.textContent = hasQ ? actualRenderedCount : products.length;
-        });
+                if (productId) {
+                    matchedProduct = products.find(p => p.id_product == productId);
+                }
+                if (!matchedProduct) {
+                    const anchors = cardEl.querySelectorAll('a[href]');
+                    const hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
+                    matchedProduct = products.find(p => {
+                        const pPath = getUrlPathname(p.url);
+                        return hrefs.some(href => href === pPath || href.endsWith(pPath) || pPath.endsWith(href));
+                    });
+                }
+
+                // If matchedProduct is found, check if it's in the filtered list.
+                // If it is NOT matched, and filters are active (hasQ), hide it because it doesn't belong to the category's filtered set.
+                let isMatched = !hasQ;
+                if (hasQ && matchedProduct) {
+                    isMatched = filtered.some(fp => fp.id_product == matchedProduct.id_product);
+                }
+
+                // Find the grid column wrapper element (bootstrap col-)
+                let displayElement = cardEl;
+                let parent = cardEl.parentElement;
+                if (parent) {
+                    const classes = Array.from(parent.classList);
+                    const isCol = classes.some(c => c.startsWith('col-') || c === 'product-miniature-wrapper' || c.includes('product-miniature-wrapper'));
+                    if (isCol) {
+                        displayElement = parent;
+                    } else {
+                        let grandParent = parent.parentElement;
+                        if (grandParent) {
+                            const gpClasses = Array.from(grandParent.classList);
+                            if (gpClasses.some(c => c.startsWith('col-'))) {
+                                displayElement = grandParent;
+                            }
+                        }
+                    }
+                }
+
+                if (isMatched) {
+                    displayElement.style.setProperty('display', '', 'important');
+                    if (matchedProduct) {
+                        visibleCount++;
+                    }
+                } else {
+                    displayElement.style.setProperty('display', 'none', 'important');
+                }
+            });
+
+            // Update all badge counts (both sidebar and main toolbar)
+            document.querySelectorAll('.badge-count').forEach(el => {
+                el.textContent = hasQ ? visibleCount : products.length;
+            });
+
+            // Update real pagination visible page items
+            if (hasQ) {
+                updatePaginationUI(visibleCount);
+            }
+        }
+    }
+
+    function updatePaginationUI(visibleCount) {
+        const paginationContainer = document.querySelector('.pagination') || document.querySelector('.pagination-wrapper') || document.querySelector('.page-list');
+        if (!paginationContainer) return;
+
+        const totalPages = Math.ceil(visibleCount / initialCardsCount) || 1;
+
+        const pageItems = paginationContainer.querySelectorAll('li');
+        if (pageItems && pageItems.length > 0) {
+            pageItems.forEach(li => {
+                const link = li.querySelector('a');
+                if (!link) return;
+
+                const text = link.textContent.trim();
+                const pageNum = parseInt(text);
+
+                if (!isNaN(pageNum)) {
+                    if (pageNum > totalPages) {
+                        li.style.display = 'none';
+                    } else {
+                        li.style.display = '';
+                    }
+                } else {
+                    // Next/Prev arrows
+                    if (text.includes('Następny') || text.includes('Next') || link.getAttribute('rel') === 'next') {
+                        if (totalPages <= 1) {
+                            li.style.display = 'none';
+                        } else {
+                            li.style.display = '';
+                        }
+                    }
+                    if (text.includes('Poprzedni') || text.includes('Prev') || link.getAttribute('rel') === 'prev') {
+                        li.style.display = '';
+                    }
+                }
+            });
+        }
+
+        // If only 1 page remains, we hide the whole pagination container for elegance
+        if (totalPages <= 1) {
+            paginationContainer.style.setProperty('display', 'none', 'important');
+        } else {
+            paginationContainer.style.setProperty('display', '', 'important');
+        }
     }
 
     function setupPillsEvents(parentEl, id, state, searchInputId, containerId, trigger) {
