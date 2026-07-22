@@ -560,6 +560,27 @@ class LabelConfigurator extends Module implements WidgetInterface
         }
         $instant_val = (bool)$instant_val;
 
+        // Load original feature names to map to query parameters reliably
+        $features_list = Feature::getFeatures($id_lang);
+        $feature_names_by_id = [];
+        if ($features_list) {
+            foreach ($features_list as $f) {
+                $feature_names_by_id[(int)$f['id_feature']] = $f['name'];
+            }
+        }
+
+        $filters_config_arr = json_decode($filters_config, true);
+        if (is_array($filters_config_arr)) {
+            foreach ($filters_config_arr as &$item) {
+                if (is_numeric($item['id'])) {
+                    $item['original_name'] = isset($feature_names_by_id[(int)$item['id']]) ? $feature_names_by_id[(int)$item['id']] : $item['label'];
+                } else {
+                    $item['original_name'] = $item['label'];
+                }
+            }
+            $filters_config = json_encode($filters_config_arr);
+        }
+
         $products_base64 = base64_encode(json_encode($results));
         $config_base64 = base64_encode($filters_config);
 

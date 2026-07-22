@@ -60,18 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnApplyFilters = document.getElementById('btn-apply-filters');
 
     // Configuration settings
-    const isInstant = appEl.getAttribute('data-instant') === '1';
+    const isInstant = false; // Always force Apply button as per user's explicit request
     const ajaxUrl = appEl.getAttribute('data-ajax-url') || '';
     const idCategory = parseInt(appEl.getAttribute('data-id-category')) || 0;
 
     // Show/hide Apply Button based on configuration
-    if (!isInstant && btnApplyFilters) {
+    if (btnApplyFilters) {
         btnApplyFilters.style.display = 'block';
         btnApplyFilters.addEventListener('click', () => {
-            applyFilters();
+            applyFiltersByRedirect();
         });
-    } else if (btnApplyFilters) {
-        btnApplyFilters.style.display = 'none';
     }
 
     // Sidebar references for mobile view
@@ -541,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function onFilterInput() {
         updateAllCheckboxesPills();
         if (isInstant) {
-            applyFilters();
+            applyFiltersByRedirect();
         }
     }
 
@@ -741,35 +739,93 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Dynamic Server-Side AJAX Filtering
-    function applyFilters() {
-        if (!ajaxUrl) {
-            applyFiltersLocally();
-            return;
+    // Redirect Filtering Strategy building native URL parameters (PrestaShop Faceted Search structure)
+    function applyFiltersByRedirect() {
+        const queryParts = [];
+
+        // Parse already active query parameter q to preserve other active filters if desired
+        const urlParams = new URLSearchParams(window.location.search);
+        let existingQ = urlParams.get('q') || '';
+
+        for (const [fid, state] of Object.entries(filterStates)) {
+            // Find filter configuration original name
+            const config = filtersConfig.find(f => f.id == fid || f.id === fid);
+            if (!config) continue;
+
+            const filterLabel = config.original_name || config.label;
+
+            if (state.type === 'checkboxes') {
+                if (state.selected && state.selected.length > 0) {
+                    // For multiple values in PrestaShop faceted search: "Rodzaj+drukarki-kopiarka-laserowa" or separate parts
+                    // We join options with '-'
+                    const valuesJoined = state.selected.map(val => val.replace(/[\s\t]+/g, '+')).join('-');
+                    queryParts.push(`${filterLabel.replace(/[\s\t]+/g, '+')}-${valuesJoined}`);
+                }
+            } else if (state.type === 'slider') {
+                // Find all product features values that match this range to pass them as exact option values
+                const matchedValues = [];
+                products.forEach(p => {
+                    const featVal = getFeatureValue(p, fid);
+                    if (featVal) {
+                        const num = parseNumber(featVal);
+                        if (num >= state.currentMin && num <= state.currentMax) {
+                            if (!matchedValues.includes(featVal)) {
+                                matchedValues.push(featVal);
+                            }
+                        }
+                    }
+                });
+
+                if (matchedValues.length > 0) {
+                    const valuesJoined = matchedValues.map(val => val.replace(/[\s\t]+/g, '+')).join('-');
+                    queryParts.push(`${filterLabel.replace(/[\s\t]+/g, '+')}-${valuesJoined}`);
+                }
+            } else if (state.type === 'size_split') {
+                // Match the 2D size split dimensions to corresponding existing values
+                const matchedValues = [];
+                products.forEach(p => {
+                    const featVal = getFeatureValue(p, fid);
+                    if (featVal) {
+                        const size = parseSizeSplit(featVal);
+                        if (size.w >= state.currentMinW && size.w <= state.currentMaxW &&
+                            size.h >= state.currentMinH && size.h <= state.currentMaxH) {
+                            if (!matchedValues.includes(featVal)) {
+                                matchedValues.push(featVal);
+                            }
+                        }
+                    }
+                });
+
+                if (matchedValues.length > 0) {
+                    const valuesJoined = matchedValues.map(val => val.replace(/[\s\t]+/g, '+')).join('-');
+                    queryParts.push(`${filterLabel.replace(/[\s\t]+/g, '+')}-${valuesJoined}`);
+                }
+            } else if (fid === 'price') {
+                // Check if price range has been changed from initial limits
+                if (state.currentMin > state.min || state.currentMax < state.max) {
+                    // PrestaShop handles price with: "Cena-PLN-10-50"
+                    queryParts.push(`Cena-${state.currentMin.toFixed(2)}-${state.currentMax.toFixed(2)}`);
+                }
+            }
         }
 
-        fetch(ajaxUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id_category: idCategory,
-                filters: filterStates
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data && data.success) {
-                updateUIWithFilteredProducts(data.products);
-            } else {
-                applyFiltersLocally(); // fallback
-            }
-        })
-        .catch(err => {
-            console.error("AJAX filter request failed:", err);
-            applyFiltersLocally(); // fallback
-        });
+        const newUrl = new URL(window.location.href);
+        if (queryParts.length > 0) {
+            // Native format: ?q=FeatureName-Value1-Value2/AnotherFeature-Value3
+            const qValue = queryParts.join('/');
+            newUrl.searchParams.set('q', qValue);
+        } else {
+            newUrl.searchParams.delete('q');
+        }
+
+        console.log("LabelConfigurator Redirecting to URL:", newUrl.toString());
+        window.location.href = newUrl.toString();
+    }
+
+    // Dynamic Server-Side AJAX Filtering
+    function applyFilters() {
+        // Since we are forcing applyFiltersByRedirect, let's keep applyFilters as a fallback local w/o redirect for counting
+        applyFiltersLocally();
     }
 
     function applyFiltersLocally() {
@@ -995,8 +1051,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnResetAll.addEventListener('click', () => {
-        buildDynamicFilters();
-        applyFilters();
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('q');
+        window.location.href = newUrl.toString();
     });
 
     if (toggleSidebarBtn) {
@@ -1028,10 +1085,119 @@ document.addEventListener('DOMContentLoaded', () => {
     buildDynamicFilters();
     applyFilters();
 
+    // Parse current URL 'q' parameter to populate selected filters on load
+    function parseActiveFiltersFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const qVal = urlParams.get('q');
+        if (!qVal) return;
+
+        const parts = qVal.split('/');
+        parts.forEach(part => {
+            const separatorIndex = part.indexOf('-');
+            if (separatorIndex === -1) return;
+
+            const paramName = part.substring(0, separatorIndex).replace(/\+/g, ' ').trim();
+            const paramValuesJoined = part.substring(separatorIndex + 1).replace(/\+/g, ' ');
+
+            // Find matching filter config by label or original_name
+            const config = filtersConfig.find(f => f.original_name === paramName || f.label === paramName);
+            if (!config) return;
+
+            const fid = config.id;
+            const state = filterStates[fid];
+            if (!state) return;
+
+            if (state.type === 'checkboxes') {
+                // Split back selected options
+                const values = paramValuesJoined.split('-');
+                state.selected = values;
+
+                // Update Trigger Text dynamically
+                const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
+                if (trigger) {
+                    const triggerText = trigger.querySelector('.lc-trigger-text');
+                    if (triggerText) {
+                        triggerText.textContent = state.selected.join(', ');
+                    }
+                }
+            } else if (state.type === 'slider' && fid !== 'price') {
+                // Handle slider range min/max estimation based on matched values if any
+                const values = paramValuesJoined.split('-');
+                if (values.length > 0) {
+                    const parsedNums = values.map(v => parseNumber(v));
+                    state.currentMin = Math.min(...parsedNums);
+                    state.currentMax = Math.max(...parsedNums);
+
+                    const minRange = dynamicFiltersContainer.querySelector(`#min-${fid}`);
+                    const maxRange = dynamicFiltersContainer.querySelector(`#max-${fid}`);
+                    const minValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-min`);
+                    const maxValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-max`);
+
+                    if (minRange) minRange.value = state.currentMin;
+                    if (maxRange) maxRange.value = state.currentMax;
+                    if (minValInput) minValInput.value = state.currentMin;
+                    if (maxValInput) maxValInput.value = state.currentMax;
+                }
+            } else if (state.type === 'size_split') {
+                const values = paramValuesJoined.split('-');
+                if (values.length > 0) {
+                    const parsedSizes = values.map(v => parseSizeSplit(v));
+                    const widths = parsedSizes.map(s => s.w);
+                    const heights = parsedSizes.map(s => s.h);
+
+                    state.currentMinW = Math.min(...widths);
+                    state.currentMaxW = Math.max(...widths);
+                    state.currentMinH = Math.min(...heights);
+                    state.currentMaxH = Math.max(...heights);
+
+                    const minWRange = dynamicFiltersContainer.querySelector(`#min-${fid}-w`);
+                    const maxWRange = dynamicFiltersContainer.querySelector(`#max-${fid}-w`);
+                    const minWValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-w-min`);
+                    const maxWValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-w-max`);
+
+                    const minHRange = dynamicFiltersContainer.querySelector(`#min-${fid}-h`);
+                    const maxHRange = dynamicFiltersContainer.querySelector(`#max-${fid}-h`);
+                    const minHValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-h-min`);
+                    const maxHValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-h-max`);
+
+                    if (minWRange) minWRange.value = state.currentMinW;
+                    if (maxWRange) maxWRange.value = state.currentMaxW;
+                    if (minWValInput) minWValInput.value = Math.round(state.currentMinW);
+                    if (maxWValInput) maxWValInput.value = Math.round(state.currentMaxW);
+
+                    if (minHRange) minHRange.value = state.currentMinH;
+                    if (maxHRange) maxHRange.value = state.currentMaxH;
+                    if (minHValInput) minHValInput.value = Math.round(state.currentMinH);
+                    if (maxHValInput) maxHValInput.value = Math.round(state.currentMaxH);
+                }
+            } else if (fid === 'price') {
+                // PrestaShop format: Cena-PLN-10.00-50.00 or similar
+                const values = paramValuesJoined.split('-');
+                if (values.length >= 2) {
+                    state.currentMin = parseFloat(values[0]) || state.min;
+                    state.currentMax = parseFloat(values[1]) || state.max;
+
+                    const minRange = dynamicFiltersContainer.querySelector(`#min-price`);
+                    const maxRange = dynamicFiltersContainer.querySelector(`#max-price`);
+                    const minValInput = dynamicFiltersContainer.querySelector(`#val-price-min`);
+                    const maxValInput = dynamicFiltersContainer.querySelector(`#val-price-max`);
+
+                    if (minRange) minRange.value = state.currentMin;
+                    if (maxRange) maxRange.value = state.currentMax;
+                    if (minValInput) minValInput.value = state.currentMin.toFixed(2);
+                    if (maxValInput) maxValInput.value = state.currentMax.toFixed(2);
+                }
+            }
+        });
+    }
+
+    parseActiveFiltersFromUrl();
+    updateAllCheckboxesPills();
+
     // Since products might be loaded asynchronously or theme cards rendered via other scripts, execute map retry after a short delay
     setTimeout(() => {
         console.log("LabelConfigurator: Retrying theme products detection...");
         detectThemeProducts();
-        applyFilters();
+        applyFiltersLocally(); // Local apply only for count badge update on page load
     }, 1500);
 });

@@ -17,7 +17,7 @@
 
         <!-- Action Buttons (Apply / Reset) -->
         <div class="sidebar-actions">
-            <button class="btn-apply" id="btn-apply-filters" style="display: none;">Zastosuj filtry</button>
+            <button class="btn-apply" id="btn-apply-filters" style="display: block;">Zastosuj filtry</button>
             <button class="btn-reset" id="btn-reset-all">Wyczyść filtry</button>
         </div>
     </div>
