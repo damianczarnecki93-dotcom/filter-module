@@ -78,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Dynamic state trackers
     let filterStates = {};
+    let isCategoryLiveFilter = false;
+    let mappedThemeCards = [];
 
     // Helper: Safely retrieve feature values without any null pointer exceptions
     function getFeatureValue(product, fid) {
@@ -147,6 +149,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return color;
     }
 
+    // Helper: Normalize URL pathname to match reliably
+    function getUrlPathname(urlStr) {
+        if (!urlStr) return '';
+        try {
+            const u = new URL(urlStr, window.location.origin);
+            return u.pathname;
+        } catch(e) {
+            return urlStr;
+        }
+    }
+
     // Helper: Extract Product ID from theme miniature card with extreme robustness
     function getProductIdFromCard(cardEl) {
         // 1. Check data-id-product or data-id attributes
@@ -183,6 +196,78 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         return null;
+    }
+
+    // Attempt to detect and map theme product cards for Live Category Filtering
+    function detectThemeProducts() {
+        const cardSelectors = [
+            '.product-miniature',
+            '.js-product-miniature',
+            '.product-miniature-wrapper',
+            '.product-preview',
+            'article.product-miniature',
+            '.products .product'
+        ];
+
+        let foundCards = [];
+        for (const selector of cardSelectors) {
+            const els = document.querySelectorAll(selector);
+            if (els && els.length > 0) {
+                foundCards = Array.from(els);
+                break;
+            }
+        }
+
+        if (foundCards.length === 0) {
+            isCategoryLiveFilter = false;
+            return;
+        }
+
+        mappedThemeCards = [];
+        foundCards.forEach(cardEl => {
+            let productId = cardEl.getAttribute('data-id-product');
+            const anchors = cardEl.querySelectorAll('a[href]');
+            let hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
+
+            let matchedProduct = null;
+            if (productId) {
+                matchedProduct = products.find(p => p.id_product == productId);
+            }
+            if (!matchedProduct && hrefs.length > 0) {
+                matchedProduct = products.find(p => {
+                    const pPath = getUrlPathname(p.url);
+                    return hrefs.includes(pPath);
+                });
+            }
+
+            if (matchedProduct) {
+                mappedThemeCards.push({
+                    el: cardEl,
+                    product: matchedProduct
+                });
+            }
+        });
+
+        if (mappedThemeCards.length > 0) {
+            isCategoryLiveFilter = true;
+
+            // ADAPT SIDEBAR LAYOUT TO NATIVE LEFT COLUMN
+            // Prevents overflow / squishing issues
+            const app = document.getElementById('configurator-app');
+            const layout = document.querySelector('.config-layout');
+            const sidebar = document.getElementById('sidebar');
+
+            if (app) app.style.maxWidth = '100%';
+            if (layout) {
+                layout.style.display = 'block';
+                layout.style.gap = '0';
+            }
+            if (sidebar) {
+                sidebar.style.width = '100%';
+                sidebar.style.flex = 'none';
+                sidebar.style.boxSizing = 'border-box';
+            }
+        }
     }
 
     // Helper: Build dynamic filters based on configuration
