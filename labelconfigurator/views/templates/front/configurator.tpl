@@ -140,6 +140,181 @@
     .badge-count { background: #2c7da0; color: white; padding: 4px 14px; border-radius: 20px; font-size: 14px; font-weight: 700; }
     .header-badge { font-size: 12px; padding: 2px 8px; }
 
+    /* Graphic Size Visualizer Styling */
+    .lc-size-visualizer-section {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+    .lc-size-visualizer-container {
+        width: 100%;
+        height: 140px;
+        background: #f1f5f9;
+        border: 1px dashed #cbd5e1;
+        border-radius: 6px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+    .lc-visualizer-shape {
+        background: #ffffff;
+        border: 2px solid #2c7da0;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        transition: width 0.3s ease, height 0.3s ease, border-radius 0.3s ease;
+        position: relative;
+        max-width: 90%;
+        max-height: 90%;
+    }
+    .lc-visualizer-shape.rectangle {
+        border-radius: 4px;
+    }
+    .lc-visualizer-shape.rounded-rectangle {
+        border-radius: 12px;
+    }
+    .lc-visualizer-shape.circle {
+        border-radius: 50%;
+        aspect-ratio: 1 / 1;
+    }
+    .lc-shape-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #1e293b;
+        text-align: center;
+        user-select: none;
+    }
+    .lc-dimension-indicator-w {
+        position: absolute;
+        bottom: -22px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: #64748b;
+    }
+    .lc-dimension-indicator-h {
+        position: absolute;
+        right: -45px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 10px;
+        font-weight: 700;
+        color: #64748b;
+    }
+
+    /* Graphical interactive selector switcher buttons */
+    .lc-shape-toggle-buttons {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+    .lc-shape-toggle-btn {
+        flex: 1;
+        padding: 6px 10px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #475569;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+    }
+    .lc-shape-toggle-btn.active {
+        background: #2c7da0;
+        border-color: #2c7da0;
+        color: #ffffff;
+    }
+
+    /* Combo box design */
+    .lc-combo-box {
+        position: relative;
+        width: 100%;
+        margin-bottom: 12px;
+    }
+    .lc-combo-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #475569;
+        display: block;
+        margin-bottom: 4px;
+    }
+    .lc-combo-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .lc-combo-input {
+        width: 100%;
+        padding: 8px 32px 8px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+        box-sizing: border-box;
+    }
+    .lc-combo-input:focus {
+        outline: none;
+        border-color: #2c7da0;
+        box-shadow: 0 0 0 3px rgba(44, 125, 160, 0.15);
+    }
+    .lc-combo-toggle {
+        position: absolute;
+        right: 8px;
+        cursor: pointer;
+        color: #64748b;
+        user-select: none;
+        font-size: 18px;
+        transition: transform 0.2s;
+    }
+    .lc-combo-toggle.open {
+        transform: rotate(180deg);
+    }
+    .lc-combo-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        z-index: 1010;
+        max-height: 140px;
+        overflow-y: auto;
+        display: none;
+        margin-top: 4px;
+    }
+    .lc-combo-dropdown.open {
+        display: block;
+    }
+    .lc-combo-option {
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #334155;
+        cursor: pointer;
+    }
+    .lc-combo-option:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+    .lc-combo-option.active {
+        background: #2c7da0;
+        color: #ffffff;
+    }
+
     /* Media queries for Responsiveness */
     @media (max-width: 991px) {
         .config-sidebar {

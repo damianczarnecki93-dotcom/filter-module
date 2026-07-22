@@ -589,63 +589,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupSliderEvents(body, fid, filterStates[fid], false);
 
             } else if (type === 'size_split') {
-                const widths = [];
-                const heights = [];
+                const widthsSet = new Set();
+                const heightsSet = new Set();
 
                 products.forEach(p => {
-                    const featVal = getFeatureValue(p, fid);
-                    if (featVal) {
-                        const parsed = parseSizeSplit(featVal);
-                        if (parsed.w > 0) widths.push(parsed.w);
-                        if (parsed.h > 0) heights.push(parsed.h);
-                    }
+                    const featVals = getFeatureValues(p, fid);
+                    featVals.forEach(featVal => {
+                        if (featVal) {
+                            const parsed = parseSizeSplit(featVal);
+                            if (parsed.w > 0) widthsSet.add(parsed.w);
+                            if (parsed.h > 0) heightsSet.add(parsed.h);
+                        }
+                    });
                 });
 
-                const minW = widths.length ? Math.min(...widths) : 0;
-                const maxW = widths.length ? Math.max(...widths) : 0;
-                const minH = heights.length ? Math.min(...heights) : 0;
-                const maxH = heights.length ? Math.max(...heights) : 0;
+                const uniqueWidths = Array.from(widthsSet).sort((a, b) => a - b);
+                const uniqueHeights = Array.from(heightsSet).sort((a, b) => a - b);
 
                 filterStates[fid] = {
                     type: 'size_split',
-                    minW: minW,
-                    maxW: maxW,
-                    currentMinW: minW,
-                    currentMaxW: maxW,
-                    minH: minH,
-                    maxH: maxH,
-                    currentMinH: minH,
-                    currentMaxH: maxH,
-                    featureId: fid
+                    selectedW: null,
+                    selectedH: null,
+                    shape: 'rectangle',
+                    featureId: fid,
+                    allWidths: uniqueWidths,
+                    allHeights: uniqueHeights
                 };
 
                 body.innerHTML = `
-                    <div style="margin-bottom: 20px;">
-                        <span style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:8px;">Szerokość (mm):</span>
-                        <div class="input-range-wrapper">
-                            <input type="number" class="manual-input" id="val-${fid}-w-min" value="${minW}" min="${minW}">
-                            <span>-</span>
-                            <input type="number" class="manual-input" id="val-${fid}-w-max" value="${maxW}" min="${minW}">
+                    <div class="lc-size-visualizer-section">
+                        <!-- Shape selector toggle -->
+                        <div class="lc-shape-toggle-buttons">
+                            <button class="lc-shape-toggle-btn active" id="btn-shape-rect-${fid}" data-shape="rectangle">Prostokąt</button>
+                            <button class="lc-shape-toggle-btn" id="btn-shape-circle-${fid}" data-shape="circle">Koło</button>
                         </div>
-                        <div class="dual-slider">
-                            <input type="range" id="min-${fid}-w" value="${minW}" min="${minW}" max="${maxW}">
-                            <input type="range" id="max-${fid}-w" value="${maxW}" min="${minW}" max="${maxW}">
+
+                        <!-- Shape preview visualizer -->
+                        <div class="lc-size-visualizer-container">
+                            <div class="lc-visualizer-shape rectangle" id="visualizer-shape-${fid}">
+                                <span class="lc-shape-label" id="visualizer-text-${fid}">Wpisz wymiary</span>
+                                <span class="lc-dimension-indicator-w" id="indicator-w-${fid}">-</span>
+                                <span class="lc-dimension-indicator-h" id="indicator-h-${fid}">-</span>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <span style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:8px;">Wysokość (mm):</span>
-                        <div class="input-range-wrapper">
-                            <input type="number" class="manual-input" id="val-${fid}-h-min" value="${minH}" min="${minH}">
-                            <span>-</span>
-                            <input type="number" class="manual-input" id="val-${fid}-h-max" value="${maxH}" min="${minH}">
+
+                        <!-- Width input with combo box -->
+                        <div class="lc-combo-box" id="combo-w-container-${fid}">
+                            <span class="lc-combo-label" id="combo-w-label-${fid}">Szerokość (mm):</span>
+                            <div class="lc-combo-input-wrapper">
+                                <input type="text" class="lc-combo-input" id="combo-w-input-${fid}" placeholder="Wpisz lub wybierz..." autocomplete="off">
+                                <span class="lc-combo-toggle" id="combo-w-toggle-${fid}">▼</span>
+                                <div class="lc-combo-dropdown" id="combo-w-dropdown-${fid}">
+                                    ${uniqueWidths.map(w => `<div class="lc-combo-option" data-value="${w}">${w} mm</div>`).join('')}
+                                </div>
+                            </div>
                         </div>
-                        <div class="dual-slider">
-                            <input type="range" id="min-${fid}-h" value="${minH}" min="${minH}" max="${maxH}">
-                            <input type="range" id="max-${fid}-h" value="${maxH}" min="${minH}" max="${maxH}">
+
+                        <!-- Height input with combo box -->
+                        <div class="lc-combo-box" id="combo-h-container-${fid}">
+                            <span class="lc-combo-label" id="combo-h-label-${fid}">Wysokość (mm):</span>
+                            <div class="lc-combo-input-wrapper">
+                                <input type="text" class="lc-combo-input" id="combo-h-input-${fid}" placeholder="Wpisz lub wybierz..." autocomplete="off">
+                                <span class="lc-combo-toggle" id="combo-h-toggle-${fid}">▼</span>
+                                <div class="lc-combo-dropdown" id="combo-h-dropdown-${fid}">
+                                    ${uniqueHeights.map(h => `<div class="lc-combo-option" data-value="${h}">${h} mm</div>`).join('')}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
-                setupSizeSplitEvents(body, fid, filterStates[fid]);
+
+                setupGraphicalSizeEvents(body, fid, filterStates[fid]);
 
             } else if (type === 'checkboxes') {
                 const allVals = [];
@@ -803,113 +817,170 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function setupSizeSplitEvents(parentEl, id, state) {
-        // Width
-        const minWRange = parentEl.querySelector(`#min-${id}-w`);
-        const maxWRange = parentEl.querySelector(`#max-${id}-w`);
-        const minWValInput = parentEl.querySelector(`#val-${id}-w-min`);
-        const maxWValInput = parentEl.querySelector(`#val-${id}-w-max`);
+    function setupGraphicalSizeEvents(parentEl, id, state) {
+        const btnRect = parentEl.querySelector(`#btn-shape-rect-${id}`);
+        const btnCircle = parentEl.querySelector(`#btn-shape-circle-${id}`);
+        const shapeEl = parentEl.querySelector(`#visualizer-shape-${id}`);
+        const textEl = parentEl.querySelector(`#visualizer-text-${id}`);
+        const indW = parentEl.querySelector(`#indicator-w-${id}`);
+        const indH = parentEl.querySelector(`#indicator-h-${id}`);
 
-        if (minWRange && maxWRange && minWValInput && maxWValInput) {
-            minWRange.addEventListener('input', (e) => {
-                minWRange.style.zIndex = "10";
-                maxWRange.style.zIndex = "9";
-                let val = parseFloat(minWRange.value);
-                if (val > parseFloat(maxWRange.value)) {
-                    val = parseFloat(maxWRange.value);
-                    minWRange.value = val;
+        const comboWInput = parentEl.querySelector(`#combo-w-input-${id}`);
+        const comboWToggle = parentEl.querySelector(`#combo-w-toggle-${id}`);
+        const comboWDropdown = parentEl.querySelector(`#combo-w-dropdown-${id}`);
+        const labelW = parentEl.querySelector(`#combo-w-label-${id}`);
+
+        const comboHContainer = parentEl.querySelector(`#combo-h-container-${id}`);
+        const comboHInput = parentEl.querySelector(`#combo-h-input-${id}`);
+        const comboHToggle = parentEl.querySelector(`#combo-h-toggle-${id}`);
+        const comboHDropdown = parentEl.querySelector(`#combo-h-dropdown-${id}`);
+
+        function updateVisualizer() {
+            const w = parseFloat(comboWInput.value) || 0;
+            const h = state.shape === 'circle' ? w : (parseFloat(comboHInput.value) || 0);
+
+            // Update State
+            state.selectedW = w > 0 ? w : null;
+            state.selectedH = state.shape === 'circle' ? null : (h > 0 ? h : null);
+
+            // Update dimension indicators
+            if (state.shape === 'circle') {
+                shapeEl.className = 'lc-visualizer-shape circle';
+                indH.style.display = 'none';
+                if (w > 0) {
+                    textEl.textContent = `Ø ${w} mm`;
+                    indW.textContent = `Ø ${w} mm`;
+                } else {
+                    textEl.textContent = 'Średnica';
+                    indW.textContent = '-';
                 }
-                state.currentMinW = val;
-                minWValInput.value = Math.round(val);
-                onFilterInput();
-            });
-
-            maxWRange.addEventListener('input', (e) => {
-                minWRange.style.zIndex = "9";
-                maxWRange.style.zIndex = "10";
-                let val = parseFloat(maxWRange.value);
-                if (val < parseFloat(minWRange.value)) {
-                    val = parseFloat(minWRange.value);
-                    maxWRange.value = val;
+            } else {
+                shapeEl.className = 'lc-visualizer-shape rectangle';
+                indH.style.display = 'block';
+                if (w > 0 || h > 0) {
+                    textEl.textContent = `${w || '?'} x ${h || '?'} mm`;
+                    indW.textContent = w ? `${w} mm` : '-';
+                    indH.textContent = h ? `${h} mm` : '-';
+                } else {
+                    textEl.textContent = 'Wpisz wymiary';
+                    indW.textContent = '-';
+                    indH.textContent = '-';
                 }
-                state.currentMaxW = val;
-                maxWValInput.value = Math.round(val);
-                onFilterInput();
+            }
+
+            // Animate / scale the element proportionally
+            const maxDim = 100;
+            let displayW = maxDim;
+            let displayH = maxDim;
+
+            const activeW = w > 0 ? w : 50;
+            const activeH = h > 0 ? h : (state.shape === 'circle' ? 50 : 30);
+
+            if (activeW >= activeH) {
+                displayH = (activeH / activeW) * maxDim;
+                if (displayH < 30) displayH = 30; // Min readable height
+            } else {
+                displayW = (activeW / activeH) * maxDim;
+                if (displayW < 30) displayW = 30; // Min readable width
+            }
+
+            shapeEl.style.width = displayW + 'px';
+            shapeEl.style.height = displayH + 'px';
+
+            onFilterInput();
+        }
+
+        // Toggle buttons logic
+        btnRect.addEventListener('click', (e) => {
+            e.preventDefault();
+            btnRect.classList.add('active');
+            btnCircle.classList.remove('active');
+            state.shape = 'rectangle';
+            comboHContainer.style.display = 'block';
+            labelW.textContent = 'Szerokość (mm):';
+            updateVisualizer();
+        });
+
+        btnCircle.addEventListener('click', (e) => {
+            e.preventDefault();
+            btnCircle.classList.add('active');
+            btnRect.classList.remove('active');
+            state.shape = 'circle';
+            comboHContainer.style.display = 'none';
+            labelW.textContent = 'Średnica (mm):';
+            updateVisualizer();
+        });
+
+        // Setup combo box
+        function setupComboHandlers(input, toggle, dropdown, onSelect) {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggle.classList.toggle('open');
+                dropdown.classList.toggle('open');
             });
 
-            minWValInput.addEventListener('change', () => {
-                let val = parseFloat(minWValInput.value) || state.minW;
-                if (val < state.minW) val = state.minW;
-                if (val > state.currentMaxW) val = state.currentMaxW;
-                minWValInput.value = Math.round(val);
-                minWRange.value = val;
-                state.currentMinW = val;
-                onFilterInput();
+            input.addEventListener('focus', () => {
+                toggle.classList.add('open');
+                dropdown.classList.add('open');
             });
 
-            maxWValInput.addEventListener('change', () => {
-                let val = parseFloat(maxWValInput.value) || state.maxW;
-                if (val > state.maxW) val = state.maxW;
-                if (val < state.currentMinW) val = state.currentMinW;
-                maxWValInput.value = Math.round(val);
-                maxWRange.value = val;
-                state.currentMaxW = val;
-                onFilterInput();
+            input.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            input.addEventListener('input', () => {
+                const searchVal = input.value.trim().toLowerCase();
+                const options = dropdown.querySelectorAll('.lc-combo-option');
+                options.forEach(opt => {
+                    const txt = opt.textContent.toLowerCase();
+                    if (txt.includes(searchVal)) {
+                        opt.style.display = 'block';
+                    } else {
+                        opt.style.display = 'none';
+                    }
+                });
+                updateVisualizer();
+            });
+
+            dropdown.addEventListener('click', (e) => {
+                const opt = e.target.closest('.lc-combo-option');
+                if (opt) {
+                    const val = opt.getAttribute('data-value');
+                    input.value = val;
+                    dropdown.classList.remove('open');
+                    toggle.classList.remove('open');
+                    onSelect(val);
+                }
+            });
+
+            document.addEventListener('click', () => {
+                dropdown.classList.remove('open');
+                toggle.classList.remove('open');
             });
         }
 
-        // Height
-        const minHRange = parentEl.querySelector(`#min-${id}-h`);
-        const maxHRange = parentEl.querySelector(`#max-${id}-h`);
-        const minHValInput = parentEl.querySelector(`#val-${id}-h-min`);
-        const maxHValInput = parentEl.querySelector(`#val-${id}-h-max`);
+        setupComboHandlers(comboWInput, comboWToggle, comboWDropdown, (val) => {
+            updateVisualizer();
+        });
 
-        if (minHRange && maxHRange && minHValInput && maxHValInput) {
-            minHRange.addEventListener('input', (e) => {
-                minHRange.style.zIndex = "10";
-                maxHRange.style.zIndex = "9";
-                let val = parseFloat(minHRange.value);
-                if (val > parseFloat(maxHRange.value)) {
-                    val = parseFloat(maxHRange.value);
-                    minHRange.value = val;
-                }
-                state.currentMinH = val;
-                minHValInput.value = Math.round(val);
-                onFilterInput();
-            });
+        setupComboHandlers(comboHInput, comboHToggle, comboHDropdown, (val) => {
+            updateVisualizer();
+        });
 
-            maxHRange.addEventListener('input', (e) => {
-                minHRange.style.zIndex = "9";
-                maxHRange.style.zIndex = "10";
-                let val = parseFloat(maxHRange.value);
-                if (val < parseFloat(minHRange.value)) {
-                    val = parseFloat(minHRange.value);
-                    maxHRange.value = val;
-                }
-                state.currentMaxH = val;
-                maxHValInput.value = Math.round(val);
-                onFilterInput();
-            });
+        comboWInput.addEventListener('change', updateVisualizer);
+        comboHInput.addEventListener('change', updateVisualizer);
 
-            minHValInput.addEventListener('change', () => {
-                let val = parseFloat(minHValInput.value) || state.minH;
-                if (val < state.minH) val = state.minH;
-                if (val > state.currentMaxH) val = state.currentMaxH;
-                minHValInput.value = Math.round(val);
-                minHRange.value = val;
-                state.currentMinH = val;
-                onFilterInput();
-            });
-
-            maxHValInput.addEventListener('change', () => {
-                let val = parseFloat(maxHValInput.value) || state.maxH;
-                if (val > state.maxH) val = state.maxH;
-                if (val < state.currentMinH) val = state.currentMinH;
-                maxHValInput.value = Math.round(val);
-                maxHRange.value = val;
-                state.currentMaxH = val;
-                onFilterInput();
-            });
+        // Pre-fill / Restore state if page loaded with existing selections
+        if (state.selectedW) {
+            comboWInput.value = state.selectedW;
+        }
+        if (state.selectedH) {
+            comboHInput.value = state.selectedH;
+        }
+        if (state.shape === 'circle') {
+            btnCircle.click();
+        } else {
+            updateVisualizer();
         }
     }
 
@@ -982,35 +1053,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } else if (state.type === 'size_split') {
-                // Check if dimensions range has been changed from initial limits
-                // The user says: "wymiary etykiet średnio się wyszukują - nie zmieniaj podanego przedzialu wymiaru nie zależnie od drugiego wymiaru."
-                // This means when they move width slider, we only filter by width regardless of height (and vice versa) instead of BOTH ranges must be satisfied.
-                const isWidthChanged = state.currentMinW > state.minW || state.currentMaxW < state.maxW;
-                const isHeightChanged = state.currentMinH > state.minH || state.currentMaxH < state.maxH;
+                const hasW = state.selectedW !== null && state.selectedW > 0;
+                const hasH = state.selectedH !== null && state.selectedH > 0;
 
-                if (isWidthChanged || isHeightChanged) {
+                if (hasW || hasH) {
                     const matchedValues = [];
                     products.forEach(p => {
-                        const featVal = getFeatureValue(p, fid);
-                        if (featVal) {
-                            const size = parseSizeSplit(featVal);
-                            let matchW = true;
-                            let matchH = true;
+                        const featVals = getFeatureValues(p, fid);
+                        featVals.forEach(featVal => {
+                            if (featVal) {
+                                const size = parseSizeSplit(featVal);
 
-                            if (isWidthChanged) {
-                                matchW = size.w >= state.currentMinW && size.w <= state.currentMaxW;
-                            }
-                            if (isHeightChanged) {
-                                matchH = size.h >= state.currentMinH && size.h <= state.currentMaxH;
-                            }
+                                let matchW = true;
+                                if (hasW) {
+                                    const diffW = Math.abs(size.w - state.selectedW);
+                                    const toleranceW = state.selectedW * 0.15;
+                                    matchW = diffW <= toleranceW;
+                                }
 
-                            // If we filter only changed ranges independently:
-                            if (matchW && matchH) {
-                                if (!matchedValues.includes(featVal)) {
-                                    matchedValues.push(featVal);
+                                let matchH = true;
+                                if (state.shape === 'circle') {
+                                    const diffH = Math.abs(size.h - size.w);
+                                    matchH = diffH <= (size.w * 0.2);
+                                } else {
+                                    if (hasH) {
+                                        const diffH = Math.abs(size.h - state.selectedH);
+                                        const toleranceH = state.selectedH * 0.15;
+                                        matchH = diffH <= toleranceH;
+                                    }
+                                }
+
+                                if (matchW && matchH) {
+                                    if (!matchedValues.includes(featVal)) {
+                                        matchedValues.push(featVal);
+                                    }
                                 }
                             }
-                        }
+                        });
                     });
 
                     if (matchedValues.length > 0) {
@@ -1066,8 +1145,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (featVals.length === 0) return false;
                     const hasMatch = featVals.some(v => {
                         const size = parseSizeSplit(v);
-                        return size.w >= state.currentMinW && size.w <= state.currentMaxW &&
-                               size.h >= state.currentMinH && size.h <= state.currentMaxH;
+
+                        let matchW = true;
+                        if (state.selectedW !== null && state.selectedW > 0) {
+                            const diffW = Math.abs(size.w - state.selectedW);
+                            const toleranceW = state.selectedW * 0.15;
+                            matchW = diffW <= toleranceW;
+                        }
+
+                        let matchH = true;
+                        if (state.shape === 'circle') {
+                            const diffH = Math.abs(size.h - size.w);
+                            matchH = diffH <= (size.w * 0.2);
+                        } else {
+                            if (state.selectedH !== null && state.selectedH > 0) {
+                                const diffH = Math.abs(size.h - state.selectedH);
+                                const toleranceH = state.selectedH * 0.15;
+                                matchH = diffH <= toleranceH;
+                            }
+                        }
+
+                        return matchW && matchH;
                     });
                     if (!hasMatch) return false;
                 } else if (state.type === 'checkboxes') {
@@ -1415,19 +1513,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     tagsContainer.appendChild(tag);
                 }
             } else if (state.type === 'size_split') {
-                if (state.currentMinW > state.minW || state.currentMaxW < state.maxW ||
-                    state.currentMinH > state.minH || state.currentMaxH < state.maxH) {
+                if (state.selectedW !== null || state.selectedH !== null) {
                     hasActiveTags = true;
                     const tag = document.createElement('div');
                     tag.className = 'lc-active-tag';
                     tag.title = 'Zresetuj wymiary';
-                    tag.innerHTML = `${filterLabel}: ${state.currentMinW}-${state.currentMaxW} x ${state.currentMinH}-${state.currentMaxH} <span class="lc-tag-close">&times;</span>`;
+
+                    let text = '';
+                    if (state.shape === 'circle') {
+                        text = `Ø ${state.selectedW || '?'} mm`;
+                    } else {
+                        text = `${state.selectedW || '?'} x ${state.selectedH || '?'} mm`;
+                    }
+
+                    tag.innerHTML = `${filterLabel}: ${text} <span class="lc-tag-close">&times;</span>`;
 
                     tag.addEventListener('click', () => {
-                        state.currentMinW = state.minW;
-                        state.currentMaxW = state.maxW;
-                        state.currentMinH = state.minH;
-                        state.currentMaxH = state.maxH;
+                        state.selectedW = null;
+                        state.selectedH = null;
                         applyFiltersByRedirect();
                     });
 
@@ -1523,33 +1626,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const values = paramValuesJoined.split('-');
                 if (values.length > 0) {
                     const parsedSizes = values.map(v => parseSizeSplit(v));
-                    const widths = parsedSizes.map(s => s.w);
-                    const heights = parsedSizes.map(s => s.h);
+                    const widths = parsedSizes.map(s => s.w).filter(w => w > 0);
+                    const heights = parsedSizes.map(s => s.h).filter(h => h > 0);
 
-                    state.currentMinW = Math.min(...widths);
-                    state.currentMaxW = Math.max(...widths);
-                    state.currentMinH = Math.min(...heights);
-                    state.currentMaxH = Math.max(...heights);
+                    if (widths.length > 0) {
+                        state.selectedW = widths[0];
+                    }
+                    if (heights.length > 0) {
+                        state.selectedH = heights[0];
+                    }
 
-                    const minWRange = dynamicFiltersContainer.querySelector(`#min-${fid}-w`);
-                    const maxWRange = dynamicFiltersContainer.querySelector(`#max-${fid}-w`);
-                    const minWValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-w-min`);
-                    const maxWValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-w-max`);
-
-                    const minHRange = dynamicFiltersContainer.querySelector(`#min-${fid}-h`);
-                    const maxHRange = dynamicFiltersContainer.querySelector(`#max-${fid}-h`);
-                    const minHValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-h-min`);
-                    const maxHValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-h-max`);
-
-                    if (minWRange) minWRange.value = state.currentMinW;
-                    if (maxWRange) maxWRange.value = state.currentMaxW;
-                    if (minWValInput) minWValInput.value = Math.round(state.currentMinW);
-                    if (maxWValInput) maxWValInput.value = Math.round(state.currentMaxW);
-
-                    if (minHRange) minHRange.value = state.currentMinH;
-                    if (maxHRange) maxHRange.value = state.currentMaxH;
-                    if (minHValInput) minHValInput.value = Math.round(state.currentMinH);
-                    if (maxHValInput) maxHValInput.value = Math.round(state.currentMaxH);
+                    const isCircle = values.some(valStr => {
+                        const raw = String(valStr).toLowerCase();
+                        return raw.includes('fi') || raw.includes('ø') || raw.includes('okrąg');
+                    });
+                    if (isCircle) {
+                        state.shape = 'circle';
+                    } else {
+                        state.shape = 'rectangle';
+                    }
                 }
             } else if (fid === 'price') {
                 // PrestaShop format: Cena-PLN-10.00-50.00 or similar
