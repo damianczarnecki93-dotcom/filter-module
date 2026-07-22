@@ -125,38 +125,59 @@ document.addEventListener('DOMContentLoaded', () => {
         return { w: single, h: single };
     }
 
-    // Colors swatches dictionary
-    const colorMap = {
-        'czarny': '#111827', 'czarna': '#111827', 'black': '#111827',
-        'biały': '#ffffff', 'biała': '#ffffff', 'white': '#ffffff',
-        'szary': '#6b7280', 'szara': '#6b7280', 'gray': '#6b7280', 'grey': '#6b7280',
-        'czerwony': '#dc2626', 'czerwona': '#dc2626', 'red': '#dc2626',
-        'niebieski': '#2563eb', 'niebieska': '#2563eb', 'blue': '#2563eb',
-        'zielony': '#16a34a', 'zielona': '#16a34a', 'green': '#16a34a',
-        'żółty': '#facc15', 'żółta': '#facc15', 'yellow': '#facc15',
-        'pomarańczowy': '#ea580c', 'pomarańczowa': '#ea580c', 'orange': '#ea580c',
-        'różowy': '#db2777', 'różowa': '#db2777', 'pink': '#db2777',
-        'brązowy': '#78350f', 'brązowa': '#78350f', 'brown': '#78350f',
-        'złoty': '#ca8a04', 'gold': '#ca8a04',
-        'srebrny': '#cbd5e1', 'silver': '#cbd5e1',
-        'przezroczysty': 'rgba(255, 255, 255, 0.2)', 'transparent': 'rgba(255, 255, 255, 0.2)'
-    };
+    // Custom Swatch style generator (returns CSS string for element background / border)
+    function getSwatchStyle(name) {
+        if (!name) return 'background: #e2e8f0;';
+        const clean = name.toLowerCase().trim();
 
-    function getSwatchColor(name) {
-        if (!name) return '#e2e8f0';
-        const cleanName = name.toLowerCase().trim();
-        if (colorMap[cleanName]) return colorMap[cleanName];
+        // 1. Transparent (checkerboard pattern)
+        if (clean === 'transparentny' || clean === 'transparentna' || clean === 'transparent' || clean === 'przezroczysty' || clean === 'przezroczysta') {
+            return 'background-color: #fff; background-image: linear-gradient(45deg, #cbd5e1 25%, transparent 25%, transparent 75%, #cbd5e1 75%, #cbd5e1), linear-gradient(45deg, #cbd5e1 25%, #fff 25%, #fff 75%, #cbd5e1 75%, #cbd5e1); background-size: 8px 8px; background-position: 0 0, 4px 4px;';
+        }
+
+        // 2. Biały mat (pure white with border)
+        if (clean === 'biały mat' || clean === 'biała matowa' || clean === 'bialy mat' || clean === 'white matte') {
+            return 'background: #ffffff; border: 1px solid #cbd5e1;';
+        }
+
+        // 3. Biały błysk (diagonal creamy-white gradient)
+        if (clean === 'biały błysk' || clean === 'biała błyszcząca' || clean === 'bialy blysk' || clean === 'white glossy') {
+            return 'background: linear-gradient(135deg, #fffde6 50%, #ffffff 50%); border: 1px solid #cbd5e1;';
+        }
+
+        // 4. White / Biały (standard)
+        if (clean === 'biały' || clean === 'biała' || clean === 'white') {
+            return 'background: #ffffff; border: 1px solid #cbd5e1;';
+        }
+
+        const colorMap = {
+            'czarny': '#111827', 'czarna': '#111827', 'black': '#111827',
+            'szary': '#6b7280', 'szara': '#6b7280', 'gray': '#6b7280', 'grey': '#6b7280',
+            'czerwony': '#dc2626', 'czerwona': '#dc2626', 'red': '#dc2626',
+            'niebieski': '#2563eb', 'niebieska': '#2563eb', 'blue': '#2563eb',
+            'zielony': '#16a34a', 'zielona': '#16a34a', 'green': '#16a34a',
+            'żółty': '#facc15', 'żółta': '#facc15', 'yellow': '#facc15',
+            'pomarańczowy': '#ea580c', 'pomarańczowa': '#ea580c', 'orange': '#ea580c',
+            'różowy': '#db2777', 'różowa': '#db2777', 'pink': '#db2777',
+            'brązowy': '#78350f', 'brązowa': '#78350f', 'brown': '#78350f',
+            'złoty': '#ca8a04', 'gold': '#ca8a04',
+            'srebrny': '#cbd5e1', 'silver': '#cbd5e1'
+        };
+
+        if (colorMap[clean]) {
+            return `background: ${colorMap[clean]};`;
+        }
 
         let hash = 0;
-        for (let i = 0; i < cleanName.length; i++) {
-            hash = cleanName.charCodeAt(i) + ((hash << 5) - hash);
+        for (let i = 0; i < clean.length; i++) {
+            hash = clean.charCodeAt(i) + ((hash << 5) - hash);
         }
         let color = '#';
         for (let i = 0; i < 3; i++) {
             const value = (hash >> (i * 8)) & 0xFF;
             color += ('00' + value.toString(16)).substr(-2);
         }
-        return color;
+        return `background: ${color};`;
     }
 
     // Helper: Normalize URL pathname to match reliably (stripping language slugs like /pl/)
@@ -473,10 +494,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (isColor) {
                     const swatchesHtml = uniqueValues.map(val => {
-                        const hex = getSwatchColor(val);
-                        const lightBorder = hex.toLowerCase() === '#ffffff' ? 'border: 1px solid #cbd5e1;' : '';
+                        const swatchStyle = getSwatchStyle(val);
                         return `
-                            <div class="swatch-item" data-val="${val}" style="background-color: ${hex}; ${lightBorder}" title="${val}"></div>
+                            <div class="swatch-item" data-val="${val}" style="${swatchStyle}" title="${val}"></div>
                         `;
                     }).join('');
 
@@ -866,11 +886,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUIWithFilteredProducts(filtered) {
         console.log("LabelConfigurator: Updating UI with filtered products count:", filtered.length);
 
+        // Check if there is a "q" parameter active in URL. If not, we do not hide any products.
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasQ = urlParams.has('q');
+
         // If we mapped theme cards successfully, use them directly (most reliable)
         if (mappedThemeCards && mappedThemeCards.length > 0) {
             let visibleCount = 0;
             mappedThemeCards.forEach(item => {
-                const isMatched = filtered.some(fp => fp.id_product == item.product.id_product);
+                const isMatched = !hasQ || filtered.some(fp => fp.id_product == item.product.id_product);
 
                 // Find bootstrap grid column or wrapper element to hide/show
                 let displayElement = item.el;
@@ -901,7 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update all badge counts
             document.querySelectorAll('.badge-count').forEach(el => {
-                el.textContent = visibleCount;
+                el.textContent = hasQ ? visibleCount : products.length;
             });
             return;
         }
@@ -931,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
             foundCards.forEach(cardEl => {
                 const productId = getProductIdFromCard(cardEl);
                 if (productId) {
-                    const isMatched = filtered.some(fp => fp.id_product == productId);
+                    const isMatched = !hasQ || filtered.some(fp => fp.id_product == productId);
 
                     let displayElement = cardEl;
                     let parent = cardEl.parentElement;
@@ -962,7 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update all badge counts
             document.querySelectorAll('.badge-count').forEach(el => {
-                el.textContent = visibleCount;
+                el.textContent = hasQ ? visibleCount : products.length;
             });
         }
     }
