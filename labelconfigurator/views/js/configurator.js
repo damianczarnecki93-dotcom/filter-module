@@ -82,6 +82,53 @@ document.addEventListener('DOMContentLoaded', () => {
     let isCategoryLiveFilter = false;
     let mappedThemeCards = [];
 
+    // Helper: Get Shape Pictogram SVG string based on shape category names
+    function getShapePictogram(name) {
+        if (!name) return '';
+        const clean = name.toLowerCase().trim();
+
+        // SVG Styling definitions for sleek UI icons
+        const svgStart = '<svg class="lc-shape-icon" viewBox="0 0 24 24" width="20" height="20" style="vertical-align: middle; margin-right: 8px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; min-width: 20px;">';
+
+        // 1. Owalny / Owalne
+        if (clean === 'owalny' || clean === 'owalne') {
+            return svgStart + '<ellipse cx="12" cy="12" rx="9" ry="5"></ellipse></svg>';
+        }
+
+        // 2. Okrągłe / Okrągły
+        if (clean === 'okrągłe' || clean === 'okrągły' || clean === 'okragle' || clean === 'okragly') {
+            return svgStart + '<circle cx="12" cy="12" r="8"></circle></svg>';
+        }
+
+        // 3. Kwadratowe / Kwadratowy
+        if (clean === 'kwadratowe' || clean === 'kwadratowy' || clean === 'kwadrat') {
+            return svgStart + '<rect x="4" y="4" width="16" height="16" rx="1"></rect></svg>';
+        }
+
+        // 4. Prostokątne / Prostokątny
+        if (clean === 'prostokątne' || clean === 'prostokątny' || clean === 'prostokatne' || clean === 'prostokatny') {
+            return svgStart + '<rect x="3" y="6" width="18" height="12" rx="0"></rect></svg>';
+        }
+
+        // 5. Prostokątne zaokrąglone / Prostokątny zaokrąglony
+        if (clean.includes('zaokrąglone') || clean.includes('zaokraglone') || clean.includes('zaokrąglony') || clean.includes('zaokraglony')) {
+            return svgStart + '<rect x="3" y="6" width="18" height="12" rx="3"></rect></svg>';
+        }
+
+        // 6. Cenowe / Cenowy
+        if (clean === 'cenowe' || clean === 'cenowy') {
+            return svgStart + '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>';
+        }
+
+        // 7. Jubilerskie / Jubilerski
+        if (clean === 'jubilerskie' || clean === 'jubilerski') {
+            return svgStart + '<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>';
+        }
+
+        // Default: general label tag shape pictogram icon
+        return svgStart + '<rect x="3" y="5" width="18" height="14" rx="2"></rect><line x1="3" y1="12" x2="21" y2="12"></line></svg>';
+    }
+
     // Helper: Safely retrieve feature values without any null pointer exceptions
     function getFeatureValue(product, fid) {
         if (!product || !product.features) return '';
@@ -113,14 +160,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return match ? parseFloat(match[1]) : 0;
     }
 
-    // Helper: parse dimension pair (e.g. "70x37" or "105 x 148 mm")
+    // Helper: parse dimension pair (e.g. "99,1 x 42,3 mm" or "fi 40 mm")
     function parseSizeSplit(val) {
         if (!val) return { w: 0, h: 0 };
-        const str = String(val);
-        const match = str.replace(',', '.').match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i);
-        if (match) {
-            return { w: parseFloat(match[1]), h: parseFloat(match[2]) };
+        // Normalize commas to dots, spaces, lowercases
+        const str = String(val).replace(/,/g, '.').toLowerCase().trim();
+
+        // 1. Check for circle diameter (e.g. fi 40, fi40, fi 40 mm, ø 40, średnica 40)
+        const matchFi = str.match(/(?:fi|ø|średnica|srednica)\s*(\d+(?:\.\d+)?)/i);
+        if (matchFi) {
+            const dia = parseFloat(matchFi[1]);
+            return { w: dia, h: dia };
         }
+
+        // 2. Regular 2D dimension width x height (e.g. "99.1 x 42.3 mm" or "99.1x42.3")
+        const match2D = str.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/);
+        if (match2D) {
+            return { w: parseFloat(match2D[1]), h: parseFloat(match2D[2]) };
+        }
+
+        // 3. Fallback: single number
         const single = parseNumber(val);
         return { w: single, h: single };
     }
@@ -836,11 +895,14 @@ document.addEventListener('DOMContentLoaded', () => {
             item.classList.toggle('active');
 
             if (item.classList.contains('active')) {
-                state.selected.push(val);
+                if (!state.selected.includes(val)) {
+                    state.selected.push(val);
+                }
             } else {
                 const idx = state.selected.indexOf(val);
                 if (idx > -1) state.selected.splice(idx, 1);
             }
+            state.selected = [...new Set(state.selected)];
             onFilterInput();
         });
     }
@@ -1121,16 +1183,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const count = countProductsForOption(id, opt);
-            pill.innerHTML = `${opt} <span style="font-weight:400;margin-left:4px;opacity:0.75;">(${count})</span>`;
+
+            // Check if this filter is for Shape (Kształt) to show svg pictogram
+            const label = filtersConfig.find(f => f.id == id || f.id === id)?.label || '';
+            const isShape = /kształt|ksztalt|shape/i.test(label);
+            const shapeIcon = isShape ? getShapePictogram(opt) : '';
+
+            pill.innerHTML = `${shapeIcon}${opt} <span style="font-weight:400;margin-left:4px;opacity:0.75;">(${count})</span>`;
 
             pill.addEventListener('click', () => {
                 pill.classList.toggle('active');
                 if (pill.classList.contains('active')) {
-                    state.selected.push(opt);
+                    if (!state.selected.includes(opt)) {
+                        state.selected.push(opt);
+                    }
                 } else {
                     const idx = state.selected.indexOf(opt);
                     if (idx > -1) state.selected.splice(idx, 1);
                 }
+
+                // Keep selected list unique
+                state.selected = [...new Set(state.selected)];
 
                 // Update Trigger Text dynamically
                 if (trigger) {
@@ -1227,7 +1300,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.type === 'checkboxes') {
                 // Split back selected options
                 const values = paramValuesJoined.split('-');
-                state.selected = values;
+                state.selected = [...new Set(values)];
 
                 // Update Trigger Text dynamically
                 const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
