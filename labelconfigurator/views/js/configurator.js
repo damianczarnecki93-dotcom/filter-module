@@ -643,6 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${uniqueWidths.map(w => `<div class="lc-combo-option" data-value="${w}">${w} mm</div>`).join('')}
                                 </div>
                             </div>
+                            <div class="lc-size-suggestions" id="combo-w-suggestions-${fid}"></div>
                         </div>
 
                         <!-- Height input with combo box -->
@@ -655,6 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${uniqueHeights.map(h => `<div class="lc-combo-option" data-value="${h}">${h} mm</div>`).join('')}
                                 </div>
                             </div>
+                            <div class="lc-size-suggestions" id="combo-h-suggestions-${fid}"></div>
                         </div>
                     </div>
                 `;
@@ -829,11 +831,82 @@ document.addEventListener('DOMContentLoaded', () => {
         const comboWToggle = parentEl.querySelector(`#combo-w-toggle-${id}`);
         const comboWDropdown = parentEl.querySelector(`#combo-w-dropdown-${id}`);
         const labelW = parentEl.querySelector(`#combo-w-label-${id}`);
+        const suggestionsWContainer = parentEl.querySelector(`#combo-w-suggestions-${id}`);
 
         const comboHContainer = parentEl.querySelector(`#combo-h-container-${id}`);
         const comboHInput = parentEl.querySelector(`#combo-h-input-${id}`);
         const comboHToggle = parentEl.querySelector(`#combo-h-toggle-${id}`);
         const comboHDropdown = parentEl.querySelector(`#combo-h-dropdown-${id}`);
+        const suggestionsHContainer = parentEl.querySelector(`#combo-h-suggestions-${id}`);
+
+        function getClosestValues(targetVal, allAvailable) {
+            if (!targetVal || isNaN(targetVal) || targetVal <= 0) {
+                // Return first 6 available values as general suggestions
+                return {
+                    smaller: [],
+                    larger: allAvailable.slice(0, 6),
+                    exact: null
+                };
+            }
+
+            const sorted = [...allAvailable].sort((a, b) => a - b);
+            const exact = sorted.find(v => Math.abs(v - targetVal) < 0.01) || null;
+
+            const smallerPool = sorted.filter(v => v < targetVal - 0.01);
+            const smaller = smallerPool.slice(-3);
+
+            const largerPool = sorted.filter(v => v > targetVal + 0.01);
+            const larger = largerPool.slice(0, 3);
+
+            return { smaller, larger, exact };
+        }
+
+        function updateSuggestionsUI(inputElement, suggestionsContainer, allValues) {
+            const currentVal = parseFloat(inputElement.value) || 0;
+            const { smaller, larger, exact } = getClosestValues(currentVal, allValues);
+
+            suggestionsContainer.innerHTML = '';
+
+            if (smaller.length === 0 && larger.length === 0 && !exact) {
+                return;
+            }
+
+            const title = document.createElement('div');
+            title.className = 'lc-suggestions-title';
+            title.textContent = 'Dostępne zbliżone (wybierz):';
+            suggestionsContainer.appendChild(title);
+
+            smaller.forEach(v => {
+                const badge = document.createElement('div');
+                badge.className = 'lc-suggestion-badge';
+                badge.textContent = `${v} mm`;
+                badge.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    inputElement.value = v;
+                    updateVisualizer();
+                });
+                suggestionsContainer.appendChild(badge);
+            });
+
+            if (exact) {
+                const badge = document.createElement('div');
+                badge.className = 'lc-suggestion-badge exact active';
+                badge.textContent = `${exact} mm`;
+                suggestionsContainer.appendChild(badge);
+            }
+
+            larger.forEach(v => {
+                const badge = document.createElement('div');
+                badge.className = 'lc-suggestion-badge';
+                badge.textContent = `${v} mm`;
+                badge.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    inputElement.value = v;
+                    updateVisualizer();
+                });
+                suggestionsContainer.appendChild(badge);
+            });
+        }
 
         function updateVisualizer() {
             const w = parseFloat(comboWInput.value) || 0;
@@ -878,14 +951,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (activeW >= activeH) {
                 displayH = (activeH / activeW) * maxDim;
-                if (displayH < 30) displayH = 30; // Min readable height
+                if (displayH < 30) displayH = 30;
             } else {
                 displayW = (activeW / activeH) * maxDim;
-                if (displayW < 30) displayW = 30; // Min readable width
+                if (displayW < 30) displayW = 30;
             }
 
             shapeEl.style.width = displayW + 'px';
             shapeEl.style.height = displayH + 'px';
+
+            // Update nearest dynamic suggestions
+            updateSuggestionsUI(comboWInput, suggestionsWContainer, state.allWidths);
+            if (state.shape !== 'circle') {
+                updateSuggestionsUI(comboHInput, suggestionsHContainer, state.allHeights);
+            }
 
             onFilterInput();
         }
@@ -947,6 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (opt) {
                     const val = opt.getAttribute('data-value');
                     input.value = val;
+                    dropdown.classList.remove('remove');
                     dropdown.classList.remove('open');
                     toggle.classList.remove('open');
                     onSelect(val);
@@ -1604,6 +1684,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         triggerText.textContent = state.selected.join(', ');
                     }
                 }
+
+                // Synchronize and activate rendered color swatches if applicable
+                const swatchGrid = dynamicFiltersContainer.querySelector(`#grid-${fid}`);
+                if (swatchGrid) {
+                    swatchGrid.querySelectorAll('.swatch-item').forEach(item => {
+                        const val = item.getAttribute('data-val');
+                        if (state.selected.includes(val)) {
+                            item.classList.add('active');
+                        } else {
+                            item.classList.remove('active');
+                        }
+                    });
+                }
             } else if (state.type === 'slider' && fid !== 'price') {
                 // Handle slider range min/max estimation based on matched values if any
                 const values = paramValuesJoined.split('-');
@@ -1631,19 +1724,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (widths.length > 0) {
                         state.selectedW = widths[0];
+                        const comboWInput = dynamicFiltersContainer.querySelector(`#combo-w-input-${fid}`);
+                        if (comboWInput) {
+                            comboWInput.value = state.selectedW;
+                            comboWInput.dispatchEvent(new Event('change'));
+                        }
                     }
                     if (heights.length > 0) {
                         state.selectedH = heights[0];
+                        const comboHInput = dynamicFiltersContainer.querySelector(`#combo-h-input-${fid}`);
+                        if (comboHInput) {
+                            comboHInput.value = state.selectedH;
+                            comboHInput.dispatchEvent(new Event('change'));
+                        }
                     }
 
                     const isCircle = values.some(valStr => {
                         const raw = String(valStr).toLowerCase();
                         return raw.includes('fi') || raw.includes('ø') || raw.includes('okrąg');
                     });
+
+                    const btnCircle = dynamicFiltersContainer.querySelector(`#btn-shape-circle-${fid}`);
+                    const btnRect = dynamicFiltersContainer.querySelector(`#btn-shape-rect-${fid}`);
+
                     if (isCircle) {
                         state.shape = 'circle';
+                        if (btnCircle) {
+                            btnCircle.classList.add('active');
+                            if (btnRect) btnRect.classList.remove('active');
+                            btnCircle.click();
+                        }
                     } else {
                         state.shape = 'rectangle';
+                        if (btnRect) {
+                            btnRect.classList.add('active');
+                            if (btnCircle) btnCircle.classList.remove('active');
+                            btnRect.click();
+                        }
                     }
                 }
             } else if (fid === 'price') {

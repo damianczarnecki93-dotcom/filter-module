@@ -30,7 +30,7 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
 <!-- Inject Configurator Javascript with Timestamp Parameter to Force Cache Busting -->
-<script src="/modules/labelconfigurator/views/js/configurator.js?v={$smarty.now}" defer></script>
+<script src="{$urls.modules_url}labelconfigurator/views/js/configurator.js?v={$smarty.now}" defer></script>
 
 <style>
     #configurator-app { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; width: 100%; box-sizing: border-box; }
@@ -312,6 +312,51 @@
     }
     .lc-combo-option.active {
         background: #2c7da0;
+        color: #ffffff;
+    }
+
+    /* Suggestions styling */
+    .lc-size-suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+        margin-bottom: 12px;
+    }
+    .lc-suggestions-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #64748b;
+        width: 100%;
+        margin-bottom: 4px;
+    }
+    .lc-suggestion-badge {
+        padding: 4px 8px;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #475569;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .lc-suggestion-badge:hover {
+        background: #e2e8f0;
+        border-color: #94a3b8;
+        color: #0f172a;
+    }
+    .lc-suggestion-badge.exact {
+        background: #e0f2fe;
+        border-color: #7dd3fc;
+        color: #0369a1;
+    }
+    .lc-suggestion-badge.exact:hover {
+        background: #bae6fd;
+    }
+    .lc-suggestion-badge.active {
+        background: #2c7da0;
+        border-color: #2c7da0;
         color: #ffffff;
     }
 
