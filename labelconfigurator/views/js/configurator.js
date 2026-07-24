@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let filterStates = {};
     let isCategoryLiveFilter = false;
     let mappedThemeCards = [];
+    let isParsingUrl = false;
 
     // Helper: Get Shape Pictogram SVG string based on shape category names
     function getShapePictogram(name) {
@@ -387,47 +388,95 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Helper: Extract Product ID from theme miniature card with extreme robustness
-    function getProductIdFromCard(cardEl) {
-        // 1. Check data-id-product or data-id attributes
-        let id = cardEl.getAttribute('data-id-product') || cardEl.getAttribute('data-id') || cardEl.getAttribute('data-product-id');
-        if (id && !isNaN(id)) return parseInt(id);
+    // Helper: Find matching product from products list for a given theme miniature card with extreme robustness
+    function findProductForCard(cardEl) {
+        if (!cardEl || !products || products.length === 0) return null;
 
-        // 2. Search inside class list (e.g. id-product-123 or product-123)
-        for (const cls of cardEl.classList) {
-            const match = cls.match(/(?:id_product|id-product|product-id|product)-(\d+)/i);
-            if (match) return parseInt(match[1]);
+        // 1. Check data-id-product, data-id, or data-product-id attributes
+        let idAttr = cardEl.getAttribute('data-id-product') || cardEl.getAttribute('data-id') || cardEl.getAttribute('data-product-id');
+        if (idAttr && !isNaN(idAttr)) {
+            const pid = parseInt(idAttr);
+            const matched = products.find(p => p.id_product == pid);
+            if (matched) return matched;
         }
 
-        // 3. Search inside input fields or forms
+        // 2. Search inside class list (e.g. id_product-123 or product-123)
+        for (const cls of cardEl.classList) {
+            const match = cls.match(/(?:id_product|id-product|product-id|product)-(\d+)/i);
+            if (match) {
+                const pid = parseInt(match[1]);
+                const matched = products.find(p => p.id_product == pid);
+                if (matched) return matched;
+            }
+        }
+
+        // 3. Search inside inputs or form actions
         const idInput = cardEl.querySelector('input[name="id_product"]') || cardEl.querySelector('input[name="id"]');
-        if (idInput && idInput.value && !isNaN(idInput.value)) return parseInt(idInput.value);
+        if (idInput && idInput.value && !isNaN(idInput.value)) {
+            const pid = parseInt(idInput.value);
+            const matched = products.find(p => p.id_product == pid);
+            if (matched) return matched;
+        }
 
         const form = cardEl.querySelector('form[action*="cart"]');
         if (form) {
             const action = form.getAttribute('action');
-            const matchAction = action.match(/id_product=(\d+)/i) || action.match(/id=(\d+)/i);
-            if (matchAction) return parseInt(matchAction[1]);
+            if (action) {
+                const matchAction = action.match(/id_product=(\d+)/i) || action.match(/id=(\d+)/i);
+                if (matchAction) {
+                    const pid = parseInt(matchAction[1]);
+                    const matched = products.find(p => p.id_product == pid);
+                    if (matched) return matched;
+                }
+            }
         }
 
-        // 4. Search inside anchor links (e.g. href="/123-product-name")
+        // 4. Match using links (anchors). To prevent category links from matching, we match links
+        // whose pathname exactly matches or ends with a product's friendly URL from the products list!
         const anchors = cardEl.querySelectorAll('a[href]');
         for (const a of anchors) {
             const href = a.getAttribute('href');
             if (href) {
-                const matchId = href.match(/id_product=(\d+)/i) ||
-                                href.match(/\/(\d+)-/i) ||
-                                href.match(/-(\d+)\.html/i) ||
-                                href.match(/-(\d+)$/i);
-                if (matchId) return parseInt(matchId[1]);
+                const path = getUrlPathname(href);
+                if (path) {
+                    const matched = products.find(p => {
+                        const pPath = getUrlPathname(p.url);
+                        return pPath && (pPath === path || path.endsWith(pPath) || pPath.endsWith(path));
+                    });
+                    if (matched) return matched;
+                }
             }
         }
 
-        // 5. Check if the element itself has an ID or classes that can identify it
+        // 5. Fallback regex match but ONLY on elements that are likely product page links,
+        // (excluding category pages, sorting links, etc.)
+        for (const a of anchors) {
+            const href = a.getAttribute('href');
+            if (href) {
+                const path = getUrlPathname(href);
+                if (path && !path.includes('category') && !path.includes('kategoria') && !path.includes('cart') && !path.includes('contact')) {
+                    const matchId = href.match(/id_product=(\d+)/i) ||
+                                    href.match(/\/(\d+)-[^/]+$/) ||
+                                    href.match(/-(\d+)\.html/i);
+                    if (matchId) {
+                        const pid = parseInt(matchId[1]);
+                        const matched = products.find(p => p.id_product == pid);
+                        if (matched) return matched;
+                    }
+                }
+            }
+        }
+
+        // 6. Check if the element itself has an ID
         if (cardEl.id) {
             const matchId = cardEl.id.match(/(?:id_product|id-product|product-id|product)-(\d+)/i);
-            if (matchId) return parseInt(matchId[1]);
+            if (matchId) {
+                const pid = parseInt(matchId[1]);
+                const matched = products.find(p => p.id_product == pid);
+                if (matched) return matched;
+            }
         }
+
         return null;
     }
 
@@ -461,20 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         mappedThemeCards = [];
         foundCards.forEach(cardEl => {
-            let productId = getProductIdFromCard(cardEl);
-            const anchors = cardEl.querySelectorAll('a[href]');
-            let hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
-
-            let matchedProduct = null;
-            if (productId) {
-                matchedProduct = products.find(p => p.id_product == productId);
-            }
-            if (!matchedProduct && hrefs.length > 0) {
-                matchedProduct = products.find(p => {
-                    const pPath = getUrlPathname(p.url);
-                    return hrefs.some(href => href === pPath || href.endsWith(pPath) || pPath.endsWith(href));
-                });
-            }
+            const matchedProduct = findProductForCard(cardEl);
 
             if (matchedProduct) {
                 mappedThemeCards.push({
@@ -482,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     product: matchedProduct
                 });
             } else {
-                console.warn("LabelConfigurator: Card element has no matching product in JSON. ID:", productId, "Hrefs:", hrefs);
+                console.warn("LabelConfigurator: Card element has no matching product in JSON.", cardEl);
             }
         });
 
@@ -768,7 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onFilterInput() {
         updateAllCheckboxesPills();
-        if (isInstant) {
+        if (isInstant && !isParsingUrl) {
             applyFiltersByRedirect();
         }
     }
@@ -1437,20 +1473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (foundCards.length > 0) {
             let visibleCount = 0;
             foundCards.forEach(cardEl => {
-                let productId = getProductIdFromCard(cardEl);
-                let matchedProduct = null;
-
-                if (productId) {
-                    matchedProduct = products.find(p => p.id_product == productId);
-                }
-                if (!matchedProduct) {
-                    const anchors = cardEl.querySelectorAll('a[href]');
-                    const hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
-                    matchedProduct = products.find(p => {
-                        const pPath = getUrlPathname(p.url);
-                        return hrefs.some(href => href === pPath || href.endsWith(pPath) || pPath.endsWith(href));
-                    });
-                }
+                const matchedProduct = findProductForCard(cardEl);
 
                 // If matchedProduct is found, check if it's in the filtered list.
                 // If it is NOT matched, and filters are active (hasQ), hide it because it doesn't belong to the category's filtered set.
@@ -1789,158 +1812,163 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Parse current URL 'q' parameter to populate selected filters on load
     function parseActiveFiltersFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const qVal = urlParams.get('q');
-        if (!qVal) return;
+        isParsingUrl = true;
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const qVal = urlParams.get('q');
+            if (!qVal) return;
 
-        const parts = qVal.split('/');
-        parts.forEach(part => {
-            const separatorIndex = part.indexOf('-');
-            if (separatorIndex === -1) return;
+            const parts = qVal.split('/');
+            parts.forEach(part => {
+                const separatorIndex = part.indexOf('-');
+                if (separatorIndex === -1) return;
 
-            const paramName = part.substring(0, separatorIndex).replace(/\+/g, ' ').trim();
-            const paramValuesJoined = part.substring(separatorIndex + 1).replace(/\+/g, ' ');
+                const paramName = part.substring(0, separatorIndex).replace(/\+/g, ' ').trim();
+                const paramValuesJoined = part.substring(separatorIndex + 1).replace(/\+/g, ' ');
 
-            // Find matching filter config by label or original_name (case-insensitive, normalized)
-            const config = filtersConfig.find(f => {
-                const normParam = normalizeStr(paramName);
-                return (f.original_name && normalizeStr(f.original_name) === normParam) ||
-                       (f.label && normalizeStr(f.label) === normParam);
-            });
-            if (!config) return;
-
-            const fid = config.id;
-            const state = filterStates[fid];
-            if (!state) return;
-
-            if (state.type === 'checkboxes') {
-                const selectedOptions = [];
-                let tempStr = normalizeStr(paramValuesJoined);
-
-                // Sort state.allOptions by length descending of their normalized values
-                const sortedOptions = [...state.allOptions].sort((a, b) => {
-                    return normalizeStr(b).length - normalizeStr(a).length;
+                // Find matching filter config by label or original_name (case-insensitive, normalized)
+                const config = filtersConfig.find(f => {
+                    const normParam = normalizeStr(paramName);
+                    return (f.original_name && normalizeStr(f.original_name) === normParam) ||
+                           (f.label && normalizeStr(f.label) === normParam);
                 });
+                if (!config) return;
 
-                sortedOptions.forEach(opt => {
-                    const normOpt = normalizeStr(opt);
-                    if (normOpt && tempStr.includes(normOpt)) {
-                        selectedOptions.push(opt);
-                        // Consume the matched part to prevent smaller substrings from matching
-                        tempStr = tempStr.replace(normOpt, '');
+                const fid = config.id;
+                const state = filterStates[fid];
+                if (!state) return;
+
+                if (state.type === 'checkboxes') {
+                    const selectedOptions = [];
+                    let tempStr = normalizeStr(paramValuesJoined);
+
+                    // Sort state.allOptions by length descending of their normalized values
+                    const sortedOptions = [...state.allOptions].sort((a, b) => {
+                        return normalizeStr(b).length - normalizeStr(a).length;
+                    });
+
+                    sortedOptions.forEach(opt => {
+                        const normOpt = normalizeStr(opt);
+                        if (normOpt && tempStr.includes(normOpt)) {
+                            selectedOptions.push(opt);
+                            // Consume the matched part to prevent smaller substrings from matching
+                            tempStr = tempStr.replace(normOpt, '');
+                        }
+                    });
+
+                    state.selected = [...new Set(selectedOptions)];
+
+                    // Update Trigger Text dynamically
+                    const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
+                    if (trigger) {
+                        const triggerText = trigger.querySelector('.lc-trigger-text');
+                        if (triggerText) {
+                            triggerText.textContent = state.selected.join(', ');
+                        }
                     }
-                });
 
-                state.selected = [...new Set(selectedOptions)];
-
-                // Update Trigger Text dynamically
-                const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
-                if (trigger) {
-                    const triggerText = trigger.querySelector('.lc-trigger-text');
-                    if (triggerText) {
-                        triggerText.textContent = state.selected.join(', ');
+                    // Synchronize and activate rendered color swatches if applicable
+                    const swatchGrid = dynamicFiltersContainer.querySelector(`#grid-${fid}`);
+                    if (swatchGrid) {
+                        swatchGrid.querySelectorAll('.swatch-item').forEach(item => {
+                            const val = item.getAttribute('data-val');
+                            if (state.selected.includes(val)) {
+                                item.classList.add('active');
+                            } else {
+                                item.classList.remove('active');
+                            }
+                        });
                     }
-                }
+                } else if (state.type === 'slider' && fid !== 'price') {
+                    // Handle slider range min/max estimation based on matched values if any
+                    const parsedNums = extractNumbers(paramValuesJoined);
+                    if (parsedNums.length > 0) {
+                        state.currentMin = Math.min(...parsedNums);
+                        state.currentMax = Math.max(...parsedNums);
 
-                // Synchronize and activate rendered color swatches if applicable
-                const swatchGrid = dynamicFiltersContainer.querySelector(`#grid-${fid}`);
-                if (swatchGrid) {
-                    swatchGrid.querySelectorAll('.swatch-item').forEach(item => {
-                        const val = item.getAttribute('data-val');
-                        if (state.selected.includes(val)) {
-                            item.classList.add('active');
+                        if (state.currentMin < state.min) state.currentMin = state.min;
+                        if (state.currentMax > state.max) state.currentMax = state.max;
+
+                        const minRange = dynamicFiltersContainer.querySelector(`#min-${fid}`);
+                        const maxRange = dynamicFiltersContainer.querySelector(`#max-${fid}`);
+                        const minValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-min`);
+                        const maxValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-max`);
+
+                        if (minRange) minRange.value = state.currentMin;
+                        if (maxRange) maxRange.value = state.currentMax;
+                        if (minValInput) minValInput.value = isNaN(state.currentMin) ? state.min : state.currentMin;
+                        if (maxValInput) maxValInput.value = isNaN(state.currentMax) ? state.max : state.currentMax;
+                    }
+                } else if (state.type === 'size_split') {
+                    const values = paramValuesJoined.split('-');
+                    if (values.length > 0) {
+                        const parsedSizes = values.map(v => parseSizeSplit(v));
+                        const widths = parsedSizes.map(s => s.w).filter(w => w > 0);
+                        const heights = parsedSizes.map(s => s.h).filter(h => h > 0);
+
+                        if (widths.length > 0) {
+                            state.selectedW = widths[0];
+                            const comboWInput = dynamicFiltersContainer.querySelector(`#combo-w-input-${fid}`);
+                            if (comboWInput) {
+                                comboWInput.value = state.selectedW;
+                                comboWInput.dispatchEvent(new Event('change'));
+                            }
+                        }
+                        if (heights.length > 0) {
+                            state.selectedH = heights[0];
+                            const comboHInput = dynamicFiltersContainer.querySelector(`#combo-h-input-${fid}`);
+                            if (comboHInput) {
+                                comboHInput.value = state.selectedH;
+                                comboHInput.dispatchEvent(new Event('change'));
+                            }
+                        }
+
+                        const isCircle = values.some(valStr => {
+                            const raw = String(valStr).toLowerCase();
+                            return raw.includes('fi') || raw.includes('ø') || raw.includes('okrąg');
+                        });
+
+                        const btnCircle = dynamicFiltersContainer.querySelector(`#btn-shape-circle-${fid}`);
+                        const btnRect = dynamicFiltersContainer.querySelector(`#btn-shape-rect-${fid}`);
+
+                        if (isCircle) {
+                            state.shape = 'circle';
+                            if (btnCircle) {
+                                btnCircle.classList.add('active');
+                                if (btnRect) btnRect.classList.remove('active');
+                                btnCircle.click();
+                            }
                         } else {
-                            item.classList.remove('active');
-                        }
-                    });
-                }
-            } else if (state.type === 'slider' && fid !== 'price') {
-                // Handle slider range min/max estimation based on matched values if any
-                const parsedNums = extractNumbers(paramValuesJoined);
-                if (parsedNums.length > 0) {
-                    state.currentMin = Math.min(...parsedNums);
-                    state.currentMax = Math.max(...parsedNums);
-
-                    if (state.currentMin < state.min) state.currentMin = state.min;
-                    if (state.currentMax > state.max) state.currentMax = state.max;
-
-                    const minRange = dynamicFiltersContainer.querySelector(`#min-${fid}`);
-                    const maxRange = dynamicFiltersContainer.querySelector(`#max-${fid}`);
-                    const minValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-min`);
-                    const maxValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-max`);
-
-                    if (minRange) minRange.value = state.currentMin;
-                    if (maxRange) maxRange.value = state.currentMax;
-                    if (minValInput) minValInput.value = isNaN(state.currentMin) ? state.min : state.currentMin;
-                    if (maxValInput) maxValInput.value = isNaN(state.currentMax) ? state.max : state.currentMax;
-                }
-            } else if (state.type === 'size_split') {
-                const values = paramValuesJoined.split('-');
-                if (values.length > 0) {
-                    const parsedSizes = values.map(v => parseSizeSplit(v));
-                    const widths = parsedSizes.map(s => s.w).filter(w => w > 0);
-                    const heights = parsedSizes.map(s => s.h).filter(h => h > 0);
-
-                    if (widths.length > 0) {
-                        state.selectedW = widths[0];
-                        const comboWInput = dynamicFiltersContainer.querySelector(`#combo-w-input-${fid}`);
-                        if (comboWInput) {
-                            comboWInput.value = state.selectedW;
-                            comboWInput.dispatchEvent(new Event('change'));
+                            state.shape = 'rectangle';
+                            if (btnRect) {
+                                btnRect.classList.add('active');
+                                if (btnCircle) btnCircle.classList.remove('active');
+                                btnRect.click();
+                            }
                         }
                     }
-                    if (heights.length > 0) {
-                        state.selectedH = heights[0];
-                        const comboHInput = dynamicFiltersContainer.querySelector(`#combo-h-input-${fid}`);
-                        if (comboHInput) {
-                            comboHInput.value = state.selectedH;
-                            comboHInput.dispatchEvent(new Event('change'));
-                        }
-                    }
+                } else if (fid === 'price') {
+                    // PrestaShop format: Cena-PLN-10.00-50.00 or similar
+                    const values = paramValuesJoined.split('-');
+                    if (values.length >= 2) {
+                        state.currentMin = parseFloat(values[0]) || state.min;
+                        state.currentMax = parseFloat(values[1]) || state.max;
 
-                    const isCircle = values.some(valStr => {
-                        const raw = String(valStr).toLowerCase();
-                        return raw.includes('fi') || raw.includes('ø') || raw.includes('okrąg');
-                    });
+                        const minRange = dynamicFiltersContainer.querySelector(`#min-price`);
+                        const maxRange = dynamicFiltersContainer.querySelector(`#max-price`);
+                        const minValInput = dynamicFiltersContainer.querySelector(`#val-price-min`);
+                        const maxValInput = dynamicFiltersContainer.querySelector(`#val-price-max`);
 
-                    const btnCircle = dynamicFiltersContainer.querySelector(`#btn-shape-circle-${fid}`);
-                    const btnRect = dynamicFiltersContainer.querySelector(`#btn-shape-rect-${fid}`);
-
-                    if (isCircle) {
-                        state.shape = 'circle';
-                        if (btnCircle) {
-                            btnCircle.classList.add('active');
-                            if (btnRect) btnRect.classList.remove('active');
-                            btnCircle.click();
-                        }
-                    } else {
-                        state.shape = 'rectangle';
-                        if (btnRect) {
-                            btnRect.classList.add('active');
-                            if (btnCircle) btnCircle.classList.remove('active');
-                            btnRect.click();
-                        }
+                        if (minRange) minRange.value = state.currentMin;
+                        if (maxRange) maxRange.value = state.currentMax;
+                        if (minValInput) minValInput.value = state.currentMin.toFixed(2);
+                        if (maxValInput) maxValInput.value = state.currentMax.toFixed(2);
                     }
                 }
-            } else if (fid === 'price') {
-                // PrestaShop format: Cena-PLN-10.00-50.00 or similar
-                const values = paramValuesJoined.split('-');
-                if (values.length >= 2) {
-                    state.currentMin = parseFloat(values[0]) || state.min;
-                    state.currentMax = parseFloat(values[1]) || state.max;
-
-                    const minRange = dynamicFiltersContainer.querySelector(`#min-price`);
-                    const maxRange = dynamicFiltersContainer.querySelector(`#max-price`);
-                    const minValInput = dynamicFiltersContainer.querySelector(`#val-price-min`);
-                    const maxValInput = dynamicFiltersContainer.querySelector(`#val-price-max`);
-
-                    if (minRange) minRange.value = state.currentMin;
-                    if (maxRange) maxRange.value = state.currentMax;
-                    if (minValInput) minValInput.value = state.currentMin.toFixed(2);
-                    if (maxValInput) maxValInput.value = state.currentMax.toFixed(2);
-                }
-            }
-        });
+            });
+        } finally {
+            isParsingUrl = false;
+        }
     }
 
     parseActiveFiltersFromUrl();
