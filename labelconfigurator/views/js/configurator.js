@@ -1552,6 +1552,102 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePaginationUI(visibleCount);
             }
         }
+
+        // Always check and update Mutual Conflict Alert banner
+        updateConflictAlert(filtered);
+    }
+
+    function updateConflictAlert(filtered) {
+        const alertEl = document.getElementById('lc-filter-conflict-alert');
+        if (!alertEl) return;
+
+        // Clean any existing alert
+        alertEl.style.display = 'none';
+        alertEl.innerHTML = '';
+
+        if (!products || products.length === 0) return;
+
+        const activeFiltersWithIndividualCounts = [];
+
+        for (const [fid, state] of Object.entries(filterStates)) {
+            let isActive = false;
+            let label = filtersConfig.find(f => f.id == fid || f.id === fid)?.label || fid;
+            let activeDesc = '';
+
+            if (state.type === 'checkboxes' && state.selected && state.selected.length > 0) {
+                isActive = true;
+                activeDesc = state.selected.join(', ');
+            } else if (state.type === 'slider' && fid !== 'price') {
+                if (state.currentMin > state.min || state.currentMax < state.max) {
+                    isActive = true;
+                    activeDesc = `${state.currentMin} - ${state.currentMax}`;
+                }
+            } else if (state.type === 'size_split') {
+                if (state.selectedW !== null || state.selectedH !== null) {
+                    isActive = true;
+                    activeDesc = state.shape === 'circle' ? `Ø ${state.selectedW} mm` : `${state.selectedW || '?'} x ${state.selectedH || '?'} mm`;
+                }
+            } else if (fid === 'price') {
+                if (state.currentMin > state.min || state.currentMax < state.max) {
+                    isActive = true;
+                    activeDesc = `${state.currentMin.toFixed(2)} - ${state.currentMax.toFixed(2)} zł`;
+                }
+            }
+
+            if (isActive) {
+                const countOnlyThis = products.filter(p => {
+                    if (fid === 'price') {
+                        return p.price >= state.currentMin && p.price <= state.currentMax;
+                    } else if (state.type === 'slider') {
+                        const featVals = getFeatureValues(p, fid);
+                        return featVals.some(v => {
+                            const num = parseNumber(v);
+                            return num >= state.currentMin && num <= state.currentMax;
+                        });
+                    } else if (state.type === 'size_split') {
+                        const featVals = getFeatureValues(p, fid);
+                        return featVals.some(v => {
+                            const size = parseSizeSplit(v);
+                            let matchW = true;
+                            if (state.selectedW !== null && state.selectedW > 0) {
+                                matchW = Math.abs(size.w - state.selectedW) <= 1.2;
+                            }
+                            let matchH = true;
+                            if (state.shape === 'circle') {
+                                matchH = Math.abs(size.h - size.w) <= 1.2;
+                            } else {
+                                if (state.selectedH !== null && state.selectedH > 0) {
+                                    matchH = Math.abs(size.h - state.selectedH) <= 1.2;
+                                }
+                            }
+                            return matchW && matchH;
+                        });
+                    } else if (state.type === 'checkboxes') {
+                        const featVals = getFeatureValues(p, fid);
+                        return featVals.some(v => state.selected.includes(v));
+                    }
+                    return true;
+                }).length;
+
+                activeFiltersWithIndividualCounts.push({
+                    label: label,
+                    desc: activeDesc,
+                    count: countOnlyThis
+                });
+            }
+        }
+
+        // Show conflict alert only if filtered result is 0 and we have active filters
+        if (filtered.length === 0 && activeFiltersWithIndividualCounts.length > 0) {
+            let explanation = '<strong>Wybrane filtry wykluczają się wzajemnie. Brak pozycji do wyświetlenia:</strong><br><br>';
+            activeFiltersWithIndividualCounts.forEach(f => {
+                explanation += `• Cecha <strong>${f.label}</strong> (wybrano: <em>${f.desc}</em>) występuje w <strong>${f.count}</strong> produktach,<br>`;
+            });
+            explanation += '<br>ale żaden produkt nie spełnia wszystkich wybranych kryteriów jednocześnie.';
+
+            alertEl.innerHTML = explanation;
+            alertEl.style.display = 'block';
+        }
     }
 
     function updatePaginationUI(visibleCount) {
