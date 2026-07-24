@@ -93,8 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Sidebar references for mobile view
     const sidebar = document.getElementById('sidebar');
-    const toggleSidebarBtn = document.getElementById('toggle-sidebar');
     const closeSidebarBtn = document.getElementById('close-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const btnMobileToggle = document.getElementById('toggle-sidebar-mobile');
+    const btnMobileFab = document.getElementById('toggle-sidebar-fab');
 
     // Dynamic state trackers
     let filterStates = {};
@@ -1834,17 +1836,20 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = newUrl.toString();
     });
 
-    if (toggleSidebarBtn) {
-        toggleSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.add('open');
-        });
+    function openSidebar() {
+        if (sidebar) sidebar.classList.add('open');
+        if (overlay) overlay.style.display = 'block';
     }
 
-    if (closeSidebarBtn) {
-        closeSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-        });
+    function closeSidebar() {
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.style.display = 'none';
     }
+
+    if (btnMobileToggle) btnMobileToggle.addEventListener('click', (e) => { e.preventDefault(); openSidebar(); });
+    if (btnMobileFab) btnMobileFab.addEventListener('click', (e) => { e.preventDefault(); openSidebar(); });
+    if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', (e) => { e.preventDefault(); closeSidebar(); });
+    if (overlay) overlay.addEventListener('click', (e) => { e.preventDefault(); closeSidebar(); });
 
     // Close open custom dropdowns when clicking outside
     document.addEventListener('click', () => {

@@ -3,6 +3,15 @@
     <div id="json-data" style="display:none;">{$products_json|escape:'html':'UTF-8'}</div>
     <div id="config-data" style="display:none;">{$filters_config_json|escape:'html':'UTF-8'}</div>
 
+    <!-- Mobile Responsive Controls -->
+    <button class="lc-mobile-toggle-btn" id="toggle-sidebar-mobile">
+        <i class="material-icons">filter_list</i> Filtruj produkty
+    </button>
+    <button class="lc-mobile-fab" id="toggle-sidebar-fab" title="Filtruj produkty">
+        <i class="material-icons">filter_list</i>
+    </button>
+    <div class="lc-sidebar-overlay" id="sidebar-overlay"></div>
+
     <!-- Left Sidebar: Dynamic Filters Panel -->
     <div class="config-sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -375,13 +384,108 @@
         color: #ffffff;
     }
 
+    /* Mobile Toggle and FAB Styling */
+    .lc-mobile-toggle-btn {
+        display: none;
+        width: 100%;
+        padding: 12px;
+        background: #2c7da0;
+        border: none;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        transition: background 0.2s;
+    }
+    .lc-mobile-toggle-btn:hover, .lc-mobile-toggle-btn:focus {
+        background: #1f5d78;
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .lc-mobile-fab {
+        display: none;
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: #2c7da0;
+        border: none;
+        color: #fff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+        z-index: 9998;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.2s, background 0.2s;
+    }
+    .lc-mobile-fab:hover {
+        background: #1f5d78;
+    }
+    .lc-mobile-fab:active {
+        transform: scale(0.9);
+    }
+
+    /* Mobile Overlay Backdrop */
+    .lc-sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15, 23, 42, 0.5);
+        z-index: 9998;
+        backdrop-filter: blur(2px);
+    }
+
     /* Media queries for Responsiveness */
     @media (max-width: 991px) {
+        .lc-mobile-toggle-btn { display: flex; }
+        .lc-mobile-fab { display: flex; }
+
         .config-sidebar {
-            position: fixed; top: 0; left: -350px; width: 310px; height: 100%;
-            z-index: 9999; overflow-y: auto; transition: left 0.3s ease; box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: -350px;
+            width: 310px;
+            height: 100%;
+            z-index: 9999;
+            overflow-y: auto;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15);
+            border-radius: 0 12px 12px 0;
+            border: none;
+            padding: 20px 15px;
         }
-        .config-sidebar.open { left: 0; }
-        .close-sidebar-btn { display: block; }
+
+        .config-sidebar.open {
+            left: 0;
+        }
+
+        .close-sidebar-btn {
+            display: block;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 24px;
+            color: #475569;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .close-sidebar-btn:hover {
+            background: #e2e8f0;
+        }
     }
 </style>
