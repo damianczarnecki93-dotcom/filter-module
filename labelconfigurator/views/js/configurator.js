@@ -564,13 +564,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const groupDiv = document.createElement('div');
             groupDiv.className = 'filter-group';
+            groupDiv.setAttribute('data-fid', fid);
 
             // Append groupDiv immediately to DOM so lookups succeed
             dynamicFiltersContainer.appendChild(groupDiv);
 
             // Create Accordion Header
             const header = document.createElement('div');
-            header.className = 'filter-header';
+            header.className = 'filter-header collapsed';
             header.innerHTML = `
                 <label>${label}</label>
                 <i class="material-icons">expand_more</i>
@@ -1867,6 +1868,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fid = config.id;
                 const state = filterStates[fid];
                 if (!state) return;
+
+                // Expand the filter group accordion since it has active selections
+                const groupEl = dynamicFiltersContainer.querySelector(`[data-fid="${fid}"]`);
+                if (groupEl) {
+                    const headerEl = groupEl.querySelector('.filter-header');
+                    if (headerEl) {
+                        headerEl.classList.remove('collapsed');
+                    }
+                }
 
                 if (state.type === 'checkboxes') {
                     const selectedOptions = [];
