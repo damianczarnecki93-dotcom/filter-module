@@ -906,7 +906,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (v) {
                         const parsed = parseSizeSplit(v);
                         if (parsed.w > 0) {
-                            res.push({ w: parsed.w, h: parsed.h });
+                            const raw = String(v).toLowerCase();
+                            const isCircleVal = raw.includes('fi') || raw.includes('ø') || raw.includes('średnica') || raw.includes('srednica') || raw.includes('okrąg') || raw.includes('okrag');
+                            res.push({
+                                w: parsed.w,
+                                h: parsed.h,
+                                isCircle: isCircleVal
+                            });
                         }
                     }
                 });
@@ -940,9 +946,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const wVal = parseFloat(comboWInput.value) || 0;
             const hVal = parseFloat(comboHInput.value) || 0;
 
+            // Filter active pairs based on selected shape
+            const activePairs = state.shape === 'circle' ? pairs.filter(p => p.isCircle) : pairs.filter(p => !p.isCircle);
+
             // 1. Update Width suggestions
-            const uniqueWidths = [...new Set(pairs.map(p => p.w))].sort((a, b) => a - b);
+            const uniqueWidths = [...new Set(activePairs.map(p => p.w))].sort((a, b) => a - b);
             const { smaller: smallerW, larger: largerW, exact: exactW } = getClosestValues(wVal, uniqueWidths);
+
+            // Show/hide Width dropdown options based on selected shape
+            const wOptions = comboWDropdown.querySelectorAll('.lc-combo-option');
+            wOptions.forEach(opt => {
+                const val = parseFloat(opt.getAttribute('data-value')) || 0;
+                const isAllowed = uniqueWidths.some(uw => Math.abs(uw - val) <= 1.2);
+                if (isAllowed) {
+                    opt.style.display = 'block';
+                } else {
+                    opt.style.display = 'none';
+                }
+            });
 
             suggestionsWContainer.innerHTML = '';
 
@@ -971,9 +992,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 comboHContainer.style.display = 'block';
                 const hOptions = comboHDropdown.querySelectorAll('.lc-combo-option');
 
+                // Filter available heights based on active rectangle pairs
+                const uniqueHeights = [...new Set(activePairs.map(p => p.h))].sort((a, b) => a - b);
+
                 if (wVal > 0) {
                     // Find Heights that exist with the chosen Width (within 1.2 mm tolerance)
-                    const matchingPairs = pairs.filter(p => Math.abs(p.w - wVal) <= 1.2);
+                    const matchingPairs = activePairs.filter(p => Math.abs(p.w - wVal) <= 1.2);
                     const allowedHeights = [...new Set(matchingPairs.map(p => p.h))].sort((a, b) => a - b);
 
                     // If we have allowed heights
@@ -984,20 +1008,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         comboHToggle.style.pointerEvents = 'auto';
                         comboHToggle.style.opacity = '1';
 
-                        // Enable/Disable height dropdown options
+                        // Enable/Disable height dropdown options and filter by rectangular allowed set
                         hOptions.forEach(opt => {
                             const val = parseFloat(opt.getAttribute('data-value')) || 0;
                             const isAllowed = allowedHeights.some(ah => Math.abs(ah - val) <= 1.2);
-                            if (isAllowed) {
-                                opt.classList.remove('disabled');
-                                opt.style.pointerEvents = 'auto';
-                                opt.style.opacity = '1';
-                                opt.style.textDecoration = 'none';
+
+                            // Check if this height exists at all in rectangular active set
+                            const existsInRect = uniqueHeights.some(uh => Math.abs(uh - val) <= 1.2);
+
+                            if (existsInRect) {
+                                opt.style.display = 'block';
+                                if (isAllowed) {
+                                    opt.classList.remove('disabled');
+                                    opt.style.pointerEvents = 'auto';
+                                    opt.style.opacity = '1';
+                                    opt.style.textDecoration = 'none';
+                                } else {
+                                    opt.classList.add('disabled');
+                                    opt.style.pointerEvents = 'none';
+                                    opt.style.opacity = '0.3';
+                                    opt.style.textDecoration = 'line-through';
+                                }
                             } else {
-                                opt.classList.add('disabled');
-                                opt.style.pointerEvents = 'none';
-                                opt.style.opacity = '0.3';
-                                opt.style.textDecoration = 'line-through';
+                                opt.style.display = 'none';
                             }
                         });
 
@@ -1052,23 +1085,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         `;
                     }
                 } else {
-                    // No width selected, restore all height options
+                    // No width selected, restore all height options for rectangular products
                     comboHInput.disabled = false;
                     comboHInput.style.opacity = '1';
                     comboHToggle.style.pointerEvents = 'auto';
                     comboHToggle.style.opacity = '1';
 
                     hOptions.forEach(opt => {
-                        opt.classList.remove('disabled');
-                        opt.style.pointerEvents = 'auto';
-                        opt.style.opacity = '1';
-                        opt.style.textDecoration = 'none';
+                        const val = parseFloat(opt.getAttribute('data-value')) || 0;
+                        const existsInRect = uniqueHeights.some(uh => Math.abs(uh - val) <= 1.2);
+                        if (existsInRect) {
+                            opt.style.display = 'block';
+                            opt.classList.remove('disabled');
+                            opt.style.pointerEvents = 'auto';
+                            opt.style.opacity = '1';
+                            opt.style.textDecoration = 'none';
+                        } else {
+                            opt.style.display = 'none';
+                        }
                     });
 
                     // General height suggestions
                     suggestionsHContainer.innerHTML = '';
                     if (hVal > 0) {
-                        const uniqueHeights = [...new Set(pairs.map(p => p.h))].sort((a, b) => a - b);
                         const { smaller: smallerH, larger: largerH } = getClosestValues(hVal, uniqueHeights);
 
                         const titleH = document.createElement('div');
