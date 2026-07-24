@@ -83,28 +83,48 @@ class LabelConfigurator extends Module implements WidgetInterface
         if (Tools::isSubmit('submitLabelConfigurator')) {
             $id_category_filter = (int)Tools::getValue('id_category_filter', 0);
             $features = Feature::getFeatures($id_lang);
-
-            $config = [];
-
-            // Special price config
-            $config[] = [
-                'id' => 'price',
-                'active' => (bool)Tools::getValue('active_price'),
-                'label' => Tools::getValue('label_price', 'Cena (PLN)'),
-                'type' => 'slider'
-            ];
-
-            // Dynamic features config
+            $features_by_id = [];
             if ($features) {
                 foreach ($features as $f) {
-                    $fid = (int)$f['id_feature'];
-                    $config[] = [
-                        'id' => $fid,
-                        'active' => (bool)Tools::getValue('active_' . $fid),
-                        'label' => Tools::getValue('label_' . $fid, $f['name']),
-                        'type' => Tools::getValue('type_' . $fid, 'checkboxes')
-                    ];
+                    $features_by_id[(int)$f['id_feature']] = $f;
                 }
+            }
+
+            $config = [];
+            $filter_order = Tools::getValue('filter_order');
+
+            if (is_array($filter_order)) {
+                foreach ($filter_order as $fid) {
+                    if ($fid === 'price') {
+                        $config[] = [
+                            'id' => 'price',
+                            'active' => (bool)Tools::getValue('active_price'),
+                            'label' => Tools::getValue('label_price', 'Cena (PLN)'),
+                            'type' => 'slider'
+                        ];
+                    } else {
+                        $fid = (int)$fid;
+                        if (isset($features_by_id[$fid])) {
+                            $config[] = [
+                                'id' => $fid,
+                                'active' => (bool)Tools::getValue('active_' . $fid),
+                                'label' => Tools::getValue('label_' . $fid, $features_by_id[$fid]['name']),
+                                'type' => Tools::getValue('type_' . $fid, 'checkboxes')
+                            ];
+                            unset($features_by_id[$fid]);
+                        }
+                    }
+                }
+            }
+
+            // Append any remaining features that were not in filter_order to make sure config is always complete
+            foreach ($features_by_id as $fid => $f) {
+                $config[] = [
+                    'id' => $fid,
+                    'active' => (bool)Tools::getValue('active_' . $fid),
+                    'label' => Tools::getValue('label_' . $fid, $f['name']),
+                    'type' => Tools::getValue('type_' . $fid, 'checkboxes')
+                ];
             }
 
             // Save configuration
@@ -194,12 +214,6 @@ class LabelConfigurator extends Module implements WidgetInterface
             $current_config = [];
         }
 
-        // Index by ID for easier lookup
-        $config_by_id = [];
-        foreach ($current_config as $item) {
-            $config_by_id[$item['id']] = $item;
-        }
-
         // Load instant value
         $instant_key = $id_category_filter > 0 ? 'LC_FILTERS_INSTANT_' . $id_category_filter : 'LC_FILTERS_INSTANT';
         $instant_val = Configuration::get($instant_key);
@@ -212,6 +226,72 @@ class LabelConfigurator extends Module implements WidgetInterface
         $instant_val = (bool)$instant_val;
 
         $categories_list = $this->getCategoriesList($id_lang);
+
+        // Map and sort items
+        $features_by_id = [];
+        if ($features) {
+            foreach ($features as $f) {
+                $features_by_id[(int)$f['id_feature']] = $f;
+            }
+        }
+
+        $ordered_items = [];
+
+        // 1. Saved items in saved order
+        foreach ($current_config as $item) {
+            $id = $item['id'];
+            if ($id === 'price') {
+                $ordered_items[] = [
+                    'id' => 'price',
+                    'type' => 'price',
+                    'label' => isset($item['label']) ? $item['label'] : 'Cena (PLN)',
+                    'active' => isset($item['active']) ? (bool)$item['active'] : true
+                ];
+            } else {
+                $fid = (int)$id;
+                if (isset($features_by_id[$fid])) {
+                    $f = $features_by_id[$fid];
+                    $ordered_items[] = [
+                        'id' => $fid,
+                        'type' => 'feature',
+                        'name' => $f['name'],
+                        'label' => isset($item['label']) ? $item['label'] : $f['name'],
+                        'active' => isset($item['active']) ? (bool)$item['active'] : false,
+                        'presentation_type' => isset($item['type']) ? $item['type'] : 'checkboxes'
+                    ];
+                    unset($features_by_id[$fid]);
+                }
+            }
+        }
+
+        // 2. Insert price if missing
+        $has_price = false;
+        foreach ($ordered_items as $oi) {
+            if ($oi['id'] === 'price') {
+                $has_price = true;
+                break;
+            }
+        }
+        if (!$has_price) {
+            array_unshift($ordered_items, [
+                'id' => 'price',
+                'type' => 'price',
+                'label' => 'Cena (PLN)',
+                'active' => true
+            ]);
+        }
+
+        // 3. New/remaining features at end
+        foreach ($features_by_id as $fid => $f) {
+            $ordered_items[] = [
+                'id' => $fid,
+                'type' => 'feature',
+                'name' => $f['name'],
+                'label' => $f['name'],
+                'active' => false,
+                'presentation_type' => 'checkboxes'
+            ];
+        }
 
         // Start building custom HTML configuration panel
         $html = '<div class="panel">';
@@ -248,7 +328,7 @@ class LabelConfigurator extends Module implements WidgetInterface
 
         $html .= '    <p class="alert alert-info">';
         $html .= '      ' . sprintf($this->l('Konfigurujesz filtry dla poziomu: %s.'), '<strong>' . ($id_category_filter > 0 ? $this->l('Kategoria ID ') . $id_category_filter : $this->l('Globalny')) . '</strong>') . '<br />';
-        $html .= '      ' . htmlspecialchars($this->l('Włącz lub wyłącz poszczególne filtry na podstawie cech sklepu, nadaj im przyjazne dla klientów etykiety i wybierz sposób prezentacji (np. lista checkboxów dla materiałów/kształtów lub suwak dla wartości liczbowych).'), ENT_QUOTES, 'UTF-8');
+        $html .= '      ' . htmlspecialchars($this->l('Włącz lub wyłącz poszczególne filtry na podstawie cech sklepu, nadaj im przyjazne dla klientów etykiety i wybierz sposób prezentacji (np. lista checkboxów dla materiałów/kształtów lub suwak dla wartości liczbowych). Przeciągnij lub przesuń pozycje przyciskami Góra/Dół aby zmienić kolejność.'), ENT_QUOTES, 'UTF-8');
         $html .= '    </p>';
 
         // Instant / Dynamic toggle setting
@@ -277,44 +357,43 @@ class LabelConfigurator extends Module implements WidgetInterface
         $html .= '          <th>' . htmlspecialchars($this->l('Cecha / Pole w sklepie'), ENT_QUOTES, 'UTF-8') . '</th>';
         $html .= '          <th>' . htmlspecialchars($this->l('Etykieta filtra na sklepie'), ENT_QUOTES, 'UTF-8') . '</th>';
         $html .= '          <th>' . htmlspecialchars($this->l('Typ prezentacji filtra'), ENT_QUOTES, 'UTF-8') . '</th>';
+        $html .= '          <th width="160px" class="text-center">' . htmlspecialchars($this->l('Kolejność'), ENT_QUOTES, 'UTF-8') . '</th>';
         $html .= '        </tr>';
         $html .= '      </thead>';
         $html .= '      <tbody>';
 
-        // Price Row
-        $price_conf = isset($config_by_id['price']) ? $config_by_id['price'] : ['active' => true, 'label' => 'Cena (PLN)', 'type' => 'slider'];
-        $price_checked = $price_conf['active'] ? 'checked="checked"' : '';
+        foreach ($ordered_items as $item) {
+            $fid = $item['id'];
+            $active_checked = $item['active'] ? 'checked="checked"' : '';
 
-        $html .= '        <tr style="background-color: #f9f9f9; font-weight: bold;">';
-        $html .= '          <td class="text-center">';
-        $html .= '            <input type="checkbox" name="active_price" value="1" ' . $price_checked . ' />';
-        $html .= '          </td>';
-        $html .= '          <td>' . htmlspecialchars($this->l('CENA PRODUKTU'), ENT_QUOTES, 'UTF-8') . ' (Special)</td>';
-        $html .= '          <td>';
-        $html .= '            <input type="text" class="form-control" name="label_price" value="' . htmlspecialchars($price_conf['label'], ENT_QUOTES, 'UTF-8') . '" />';
-        $html .= '          </td>';
-        $html .= '          <td>';
-        $html .= '            <span class="label label-info">' . htmlspecialchars($this->l('Suwak ceny (Slider)'), ENT_QUOTES, 'UTF-8') . '</span>';
-        $html .= '          </td>';
-        $html .= '        </tr>';
-
-        // Features Rows
-        if ($features) {
-            foreach ($features as $f) {
-                $fid = (int)$f['id_feature'];
-                $f_name = $f['name'];
-
-                $f_conf = isset($config_by_id[$fid]) ? $config_by_id[$fid] : ['active' => false, 'label' => $f_name, 'type' => 'checkboxes'];
-
-                $checked = $f_conf['active'] ? 'checked="checked"' : '';
-                $label_val = $f_conf['label'];
-                $type_val = $f_conf['type'];
+            if ($item['type'] === 'price') {
+                $html .= '        <tr style="background-color: #f9f9f9; font-weight: bold;">';
+                $html .= '          <input type="hidden" name="filter_order[]" value="price" />';
+                $html .= '          <td class="text-center">';
+                $html .= '            <input type="checkbox" name="active_price" value="1" ' . $active_checked . ' />';
+                $html .= '          </td>';
+                $html .= '          <td>' . htmlspecialchars($this->l('CENA PRODUKTU'), ENT_QUOTES, 'UTF-8') . ' (Special)</td>';
+                $html .= '          <td>';
+                $html .= '            <input type="text" class="form-control" name="label_price" value="' . htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') . '" />';
+                $html .= '          </td>';
+                $html .= '          <td>';
+                $html .= '            <span class="label label-info">' . htmlspecialchars($this->l('Suwak ceny (Slider)'), ENT_QUOTES, 'UTF-8') . '</span>';
+                $html .= '          </td>';
+                $html .= '          <td class="text-center">';
+                $html .= '            <button type="button" class="btn btn-default btn-xs" onclick="moveRowUp(this)" style="margin-right:3px;">▲ ' . htmlspecialchars($this->l('Góra'), ENT_QUOTES, 'UTF-8') . '</button>';
+                $html .= '            <button type="button" class="btn btn-default btn-xs" onclick="moveRowDown(this)">▼ ' . htmlspecialchars($this->l('Dół'), ENT_QUOTES, 'UTF-8') . '</button>';
+                $html .= '          </td>';
+                $html .= '        </tr>';
+            } else {
+                $label_val = $item['label'];
+                $type_val = $item['presentation_type'];
 
                 $html .= '        <tr>';
+                $html .= '          <input type="hidden" name="filter_order[]" value="' . $fid . '" />';
                 $html .= '          <td class="text-center">';
-                $html .= '            <input type="checkbox" name="active_' . $fid . '" value="1" ' . $checked . ' />';
+                $html .= '            <input type="checkbox" name="active_' . $fid . '" value="1" ' . $active_checked . ' />';
                 $html .= '          </td>';
-                $html .= '          <td>' . htmlspecialchars($f_name, ENT_QUOTES, 'UTF-8') . ' <small class="text-muted">(ID: ' . $fid . ')</small></td>';
+                $html .= '          <td>' . htmlspecialchars($item['name'], ENT_QUOTES, 'UTF-8') . ' <small class="text-muted">(ID: ' . $fid . ')</small></td>';
                 $html .= '          <td>';
                 $html .= '            <input type="text" class="form-control" name="label_' . $fid . '" value="' . htmlspecialchars($label_val, ENT_QUOTES, 'UTF-8') . '" />';
                 $html .= '          </td>';
@@ -324,6 +403,10 @@ class LabelConfigurator extends Module implements WidgetInterface
                 $html .= '              <option value="slider" ' . ($type_val == 'slider' ? 'selected="selected"' : '') . '>' . htmlspecialchars($this->l('Suwak zakresu liczbowego'), ENT_QUOTES, 'UTF-8') . '</option>';
                 $html .= '              <option value="size_split" ' . ($type_val == 'size_split' ? 'selected="selected"' : '') . '>' . htmlspecialchars($this->l('Wymiary "Szerokość x Wysokość" (np. 70x37)'), ENT_QUOTES, 'UTF-8') . '</option>';
                 $html .= '            </select>';
+                $html .= '          </td>';
+                $html .= '          <td class="text-center">';
+                $html .= '            <button type="button" class="btn btn-default btn-xs" onclick="moveRowUp(this)" style="margin-right:3px;">▲ ' . htmlspecialchars($this->l('Góra'), ENT_QUOTES, 'UTF-8') . '</button>';
+                $html .= '            <button type="button" class="btn btn-default btn-xs" onclick="moveRowDown(this)">▼ ' . htmlspecialchars($this->l('Dół'), ENT_QUOTES, 'UTF-8') . '</button>';
                 $html .= '          </td>';
                 $html .= '        </tr>';
             }
@@ -336,6 +419,25 @@ class LabelConfigurator extends Module implements WidgetInterface
         $html .= '      <button type="submit" name="submitLabelConfigurator" class="btn btn-default pull-right"><i class="process-icon-save"></i> ' . htmlspecialchars($this->l('Zapisz konfigurację'), ENT_QUOTES, 'UTF-8') . '</button>';
         $html .= '    </div>';
         $html .= '  </form>';
+
+        // Inject JS helper to swap rows inside tbody safely
+        $html .= '  <script type="text/javascript">';
+        $html .= '    function moveRowUp(btn) {';
+        $html .= '      var row = $(btn).closest("tr");';
+        $html .= '      var prev = row.prev("tr");';
+        $html .= '      if (prev.length > 0) {';
+        $html .= '        row.insertBefore(prev);';
+        $html .= '      }';
+        $html .= '    }';
+        $html .= '    function moveRowDown(btn) {';
+        $html .= '      var row = $(btn).closest("tr");';
+        $html .= '      var next = row.next("tr");';
+        $html .= '      if (next.length > 0) {';
+        $html .= '        row.insertAfter(next);';
+        $html .= '      }';
+        $html .= '    }';
+        $html .= '  </script>';
+
         $html .= '</div>';
 
         return $html;
