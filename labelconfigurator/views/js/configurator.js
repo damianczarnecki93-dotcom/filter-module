@@ -101,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isCategoryLiveFilter = false;
     let mappedThemeCards = [];
     let isParsingUrl = false;
+    let isInitializing = true;
 
     // Helper: Get Shape Pictogram SVG string based on shape category names
     function getShapePictogram(name) {
@@ -804,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onFilterInput() {
         updateAllCheckboxesPills();
-        if (isInstant && !isParsingUrl) {
+        if (isInstant && !isParsingUrl && !isInitializing) {
             applyFiltersByRedirect();
         }
     }
@@ -2000,6 +2001,7 @@ document.addEventListener('DOMContentLoaded', () => {
     parseActiveFiltersFromUrl();
     updateAllCheckboxesPills();
     renderActiveFiltersTags();
+    isInitializing = false;
 
     // Preserve 'q' parameter when clicking on pagination links or sort order links
     function preserveQueryParamOnNavigation() {
