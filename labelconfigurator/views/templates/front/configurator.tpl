@@ -13,6 +13,9 @@
         <!-- Active Filters Tags Container -->
         <div id="active-filters-tags" class="lc-active-tags-container"></div>
 
+        <!-- Filter Conflict Alert Container -->
+        <div id="lc-filter-conflict-alert" class="lc-conflict-alert" style="display: none;"></div>
+
         <!-- Dynamic Filters Placeholder -->
         <div id="dynamic-filters-container">
             <!-- Built dynamically via Javascript -->
@@ -37,6 +40,18 @@
 
     /* Left Sidebar */
     .config-sidebar { width: 100%; background: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); box-sizing: border-box; }
+
+    /* Filter Conflict Alert */
+    .lc-conflict-alert {
+        background: #fff1f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 0 5px 15px;
+        font-size: 12px;
+        color: #991b1b;
+        line-height: 1.5;
+    }
     .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 5px; }
     .sidebar-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
     .close-sidebar-btn { display: none; background: none; border: none; font-size: 28px; color: #64748b; cursor: pointer; }

@@ -35,6 +35,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return [];
     }
 
+    // Helper: normalize string for safe comparison (strips spaces, hyphens, slashes, etc.)
+    function normalizeStr(str) {
+        if (!str) return '';
+        return str.toString()
+            .toLowerCase()
+            .replace(/[\s\t\-\/\(\)\+,;:\.\ø]/g, '')
+            .trim();
+    }
+
+    // Helper: extract all numbers (integers or decimals) from a string
+    function extractNumbers(str) {
+        if (!str) return [];
+        const normalized = str.replace(/,/g, '.');
+        const matches = normalized.match(/(\d+(?:\.\d+)?)/g);
+        if (!matches) return [];
+        return matches.map(m => parseFloat(m));
+    }
+
     let products = [];
     let filtersConfig = [];
 
@@ -82,6 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let filterStates = {};
     let isCategoryLiveFilter = false;
     let mappedThemeCards = [];
+    let isParsingUrl = false;
+    let isInitializing = true;
 
     // Helper: Get Shape Pictogram SVG string based on shape category names
     function getShapePictogram(name) {
@@ -369,47 +389,95 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Helper: Extract Product ID from theme miniature card with extreme robustness
-    function getProductIdFromCard(cardEl) {
-        // 1. Check data-id-product or data-id attributes
-        let id = cardEl.getAttribute('data-id-product') || cardEl.getAttribute('data-id') || cardEl.getAttribute('data-product-id');
-        if (id && !isNaN(id)) return parseInt(id);
+    // Helper: Find matching product from products list for a given theme miniature card with extreme robustness
+    function findProductForCard(cardEl) {
+        if (!cardEl || !products || products.length === 0) return null;
 
-        // 2. Search inside class list (e.g. id-product-123 or product-123)
-        for (const cls of cardEl.classList) {
-            const match = cls.match(/(?:id_product|id-product|product-id|product)-(\d+)/i);
-            if (match) return parseInt(match[1]);
+        // 1. Check data-id-product, data-id, or data-product-id attributes
+        let idAttr = cardEl.getAttribute('data-id-product') || cardEl.getAttribute('data-id') || cardEl.getAttribute('data-product-id');
+        if (idAttr && !isNaN(idAttr)) {
+            const pid = parseInt(idAttr);
+            const matched = products.find(p => p.id_product == pid);
+            if (matched) return matched;
         }
 
-        // 3. Search inside input fields or forms
+        // 2. Search inside class list (e.g. id_product-123 or product-123)
+        for (const cls of cardEl.classList) {
+            const match = cls.match(/(?:id_product|id-product|product-id|product)-(\d+)/i);
+            if (match) {
+                const pid = parseInt(match[1]);
+                const matched = products.find(p => p.id_product == pid);
+                if (matched) return matched;
+            }
+        }
+
+        // 3. Search inside inputs or form actions
         const idInput = cardEl.querySelector('input[name="id_product"]') || cardEl.querySelector('input[name="id"]');
-        if (idInput && idInput.value && !isNaN(idInput.value)) return parseInt(idInput.value);
+        if (idInput && idInput.value && !isNaN(idInput.value)) {
+            const pid = parseInt(idInput.value);
+            const matched = products.find(p => p.id_product == pid);
+            if (matched) return matched;
+        }
 
         const form = cardEl.querySelector('form[action*="cart"]');
         if (form) {
             const action = form.getAttribute('action');
-            const matchAction = action.match(/id_product=(\d+)/i) || action.match(/id=(\d+)/i);
-            if (matchAction) return parseInt(matchAction[1]);
+            if (action) {
+                const matchAction = action.match(/id_product=(\d+)/i) || action.match(/id=(\d+)/i);
+                if (matchAction) {
+                    const pid = parseInt(matchAction[1]);
+                    const matched = products.find(p => p.id_product == pid);
+                    if (matched) return matched;
+                }
+            }
         }
 
-        // 4. Search inside anchor links (e.g. href="/123-product-name")
+        // 4. Match using links (anchors). To prevent category links from matching, we match links
+        // whose pathname exactly matches or ends with a product's friendly URL from the products list!
         const anchors = cardEl.querySelectorAll('a[href]');
         for (const a of anchors) {
             const href = a.getAttribute('href');
             if (href) {
-                const matchId = href.match(/id_product=(\d+)/i) ||
-                                href.match(/\/(\d+)-/i) ||
-                                href.match(/-(\d+)\.html/i) ||
-                                href.match(/-(\d+)$/i);
-                if (matchId) return parseInt(matchId[1]);
+                const path = getUrlPathname(href);
+                if (path) {
+                    const matched = products.find(p => {
+                        const pPath = getUrlPathname(p.url);
+                        return pPath && (pPath === path || path.endsWith(pPath) || pPath.endsWith(path));
+                    });
+                    if (matched) return matched;
+                }
             }
         }
 
-        // 5. Check if the element itself has an ID or classes that can identify it
+        // 5. Fallback regex match but ONLY on elements that are likely product page links,
+        // (excluding category pages, sorting links, etc.)
+        for (const a of anchors) {
+            const href = a.getAttribute('href');
+            if (href) {
+                const path = getUrlPathname(href);
+                if (path && !path.includes('category') && !path.includes('kategoria') && !path.includes('cart') && !path.includes('contact')) {
+                    const matchId = href.match(/id_product=(\d+)/i) ||
+                                    href.match(/\/(\d+)-[^/]+$/) ||
+                                    href.match(/-(\d+)\.html/i);
+                    if (matchId) {
+                        const pid = parseInt(matchId[1]);
+                        const matched = products.find(p => p.id_product == pid);
+                        if (matched) return matched;
+                    }
+                }
+            }
+        }
+
+        // 6. Check if the element itself has an ID
         if (cardEl.id) {
             const matchId = cardEl.id.match(/(?:id_product|id-product|product-id|product)-(\d+)/i);
-            if (matchId) return parseInt(matchId[1]);
+            if (matchId) {
+                const pid = parseInt(matchId[1]);
+                const matched = products.find(p => p.id_product == pid);
+                if (matched) return matched;
+            }
         }
+
         return null;
     }
 
@@ -443,20 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         mappedThemeCards = [];
         foundCards.forEach(cardEl => {
-            let productId = getProductIdFromCard(cardEl);
-            const anchors = cardEl.querySelectorAll('a[href]');
-            let hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
-
-            let matchedProduct = null;
-            if (productId) {
-                matchedProduct = products.find(p => p.id_product == productId);
-            }
-            if (!matchedProduct && hrefs.length > 0) {
-                matchedProduct = products.find(p => {
-                    const pPath = getUrlPathname(p.url);
-                    return hrefs.some(href => href === pPath || href.endsWith(pPath) || pPath.endsWith(href));
-                });
-            }
+            const matchedProduct = findProductForCard(cardEl);
 
             if (matchedProduct) {
                 mappedThemeCards.push({
@@ -464,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     product: matchedProduct
                 });
             } else {
-                console.warn("LabelConfigurator: Card element has no matching product in JSON. ID:", productId, "Hrefs:", hrefs);
+                console.warn("LabelConfigurator: Card element has no matching product in JSON.", cardEl);
             }
         });
 
@@ -509,13 +564,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const groupDiv = document.createElement('div');
             groupDiv.className = 'filter-group';
+            groupDiv.setAttribute('data-fid', fid);
 
             // Append groupDiv immediately to DOM so lookups succeed
             dynamicFiltersContainer.appendChild(groupDiv);
 
             // Create Accordion Header
             const header = document.createElement('div');
-            header.className = 'filter-header';
+            header.className = 'filter-header collapsed';
             header.innerHTML = `
                 <label>${label}</label>
                 <i class="material-icons">expand_more</i>
@@ -750,7 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onFilterInput() {
         updateAllCheckboxesPills();
-        if (isInstant) {
+        if (isInstant && !isParsingUrl && !isInitializing) {
             applyFiltersByRedirect();
         }
     }
@@ -840,6 +896,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const comboHDropdown = parentEl.querySelector(`#combo-h-dropdown-${id}`);
         const suggestionsHContainer = parentEl.querySelector(`#combo-h-suggestions-${id}`);
 
+        const pairs = getAvailablePairs();
+
+        function getAvailablePairs() {
+            const res = [];
+            products.forEach(p => {
+                const featVals = getFeatureValues(p, id);
+                featVals.forEach(v => {
+                    if (v) {
+                        const parsed = parseSizeSplit(v);
+                        if (parsed.w > 0) {
+                            res.push({ w: parsed.w, h: parsed.h });
+                        }
+                    }
+                });
+            });
+            return res;
+        }
+
         function getClosestValues(targetVal, allAvailable) {
             if (!targetVal || isNaN(targetVal) || targetVal <= 0) {
                 // Return first 6 available values as general suggestions
@@ -862,51 +936,162 @@ document.addEventListener('DOMContentLoaded', () => {
             return { smaller, larger, exact };
         }
 
-        function updateSuggestionsUI(inputElement, suggestionsContainer, allValues) {
-            const currentVal = parseFloat(inputElement.value) || 0;
-            const { smaller, larger, exact } = getClosestValues(currentVal, allValues);
+        function updateSuggestionsAndDropdownsUI() {
+            const wVal = parseFloat(comboWInput.value) || 0;
+            const hVal = parseFloat(comboHInput.value) || 0;
 
-            suggestionsContainer.innerHTML = '';
+            // 1. Update Width suggestions
+            const uniqueWidths = [...new Set(pairs.map(p => p.w))].sort((a, b) => a - b);
+            const { smaller: smallerW, larger: largerW, exact: exactW } = getClosestValues(wVal, uniqueWidths);
 
-            if (smaller.length === 0 && larger.length === 0 && !exact) {
-                return;
+            suggestionsWContainer.innerHTML = '';
+
+            if (wVal > 0) {
+                const titleW = document.createElement('div');
+                titleW.className = 'lc-suggestions-title';
+                titleW.textContent = exactW ? 'Wybrana szerokość jest dostępna. Inne zbliżone:' : 'Brak dokładnej szerokości. Proponowane zbliżone:';
+                suggestionsWContainer.appendChild(titleW);
+
+                const listW = [...smallerW, ...largerW];
+                listW.forEach(v => {
+                    const badge = document.createElement('div');
+                    badge.className = 'lc-suggestion-badge';
+                    badge.textContent = `${v} mm`;
+                    badge.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        comboWInput.value = v;
+                        updateVisualizer();
+                    });
+                    suggestionsWContainer.appendChild(badge);
+                });
             }
 
-            const title = document.createElement('div');
-            title.className = 'lc-suggestions-title';
-            title.textContent = 'Dostępne zbliżone (wybierz):';
-            suggestionsContainer.appendChild(title);
+            // 2. Handle Height Suggestions and Dropdown options based on Width
+            if (state.shape !== 'circle') {
+                comboHContainer.style.display = 'block';
+                const hOptions = comboHDropdown.querySelectorAll('.lc-combo-option');
 
-            smaller.forEach(v => {
-                const badge = document.createElement('div');
-                badge.className = 'lc-suggestion-badge';
-                badge.textContent = `${v} mm`;
-                badge.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    inputElement.value = v;
-                    updateVisualizer();
-                });
-                suggestionsContainer.appendChild(badge);
-            });
+                if (wVal > 0) {
+                    // Find Heights that exist with the chosen Width (within 1.2 mm tolerance)
+                    const matchingPairs = pairs.filter(p => Math.abs(p.w - wVal) <= 1.2);
+                    const allowedHeights = [...new Set(matchingPairs.map(p => p.h))].sort((a, b) => a - b);
 
-            if (exact) {
-                const badge = document.createElement('div');
-                badge.className = 'lc-suggestion-badge exact active';
-                badge.textContent = `${exact} mm`;
-                suggestionsContainer.appendChild(badge);
+                    // If we have allowed heights
+                    if (allowedHeights.length > 0) {
+                        // Enable Height input and toggle
+                        comboHInput.disabled = false;
+                        comboHInput.style.opacity = '1';
+                        comboHToggle.style.pointerEvents = 'auto';
+                        comboHToggle.style.opacity = '1';
+
+                        // Enable/Disable height dropdown options
+                        hOptions.forEach(opt => {
+                            const val = parseFloat(opt.getAttribute('data-value')) || 0;
+                            const isAllowed = allowedHeights.some(ah => Math.abs(ah - val) <= 1.2);
+                            if (isAllowed) {
+                                opt.classList.remove('disabled');
+                                opt.style.pointerEvents = 'auto';
+                                opt.style.opacity = '1';
+                                opt.style.textDecoration = 'none';
+                            } else {
+                                opt.classList.add('disabled');
+                                opt.style.pointerEvents = 'none';
+                                opt.style.opacity = '0.3';
+                                opt.style.textDecoration = 'line-through';
+                            }
+                        });
+
+                        // Build Height suggestions UI
+                        suggestionsHContainer.innerHTML = '';
+                        const titleH = document.createElement('div');
+                        titleH.className = 'lc-suggestions-title';
+
+                        const exactH = allowedHeights.find(ah => Math.abs(ah - hVal) <= 1.2);
+                        if (hVal > 0 && exactH) {
+                            titleH.textContent = `Dostępne inne wysokości dla szerokości ${wVal} mm:`;
+                        } else if (hVal > 0) {
+                            titleH.textContent = `Wybrana wysokość jest niedostępna dla szerokości ${wVal} mm. Dostępne wysokości:`;
+                        } else {
+                            titleH.textContent = `Wybierz jedną z dostępnych wysokości dla szerokości ${wVal} mm:`;
+                        }
+                        suggestionsHContainer.appendChild(titleH);
+
+                        allowedHeights.forEach(v => {
+                            const badge = document.createElement('div');
+                            badge.className = 'lc-suggestion-badge';
+                            if (Math.abs(v - hVal) <= 1.2) {
+                                badge.classList.add('exact', 'active');
+                            }
+                            badge.textContent = `${v} mm`;
+                            badge.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                comboHInput.value = v;
+                                updateVisualizer();
+                            });
+                            suggestionsHContainer.appendChild(badge);
+                        });
+                    } else {
+                        // No matching heights at all for this width! Disable height input.
+                        comboHInput.disabled = true;
+                        comboHInput.style.opacity = '0.5';
+                        comboHToggle.style.pointerEvents = 'none';
+                        comboHToggle.style.opacity = '0.5';
+                        comboHInput.value = '';
+
+                        hOptions.forEach(opt => {
+                            opt.classList.add('disabled');
+                            opt.style.pointerEvents = 'none';
+                            opt.style.opacity = '0.3';
+                            opt.style.textDecoration = 'line-through';
+                        });
+
+                        suggestionsHContainer.innerHTML = `
+                            <div class="lc-suggestions-title" style="color: #dc2626;">
+                                Brak dostępnych wysokości dla szerokości ${wVal} mm!
+                            </div>
+                        `;
+                    }
+                } else {
+                    // No width selected, restore all height options
+                    comboHInput.disabled = false;
+                    comboHInput.style.opacity = '1';
+                    comboHToggle.style.pointerEvents = 'auto';
+                    comboHToggle.style.opacity = '1';
+
+                    hOptions.forEach(opt => {
+                        opt.classList.remove('disabled');
+                        opt.style.pointerEvents = 'auto';
+                        opt.style.opacity = '1';
+                        opt.style.textDecoration = 'none';
+                    });
+
+                    // General height suggestions
+                    suggestionsHContainer.innerHTML = '';
+                    if (hVal > 0) {
+                        const uniqueHeights = [...new Set(pairs.map(p => p.h))].sort((a, b) => a - b);
+                        const { smaller: smallerH, larger: largerH } = getClosestValues(hVal, uniqueHeights);
+
+                        const titleH = document.createElement('div');
+                        titleH.className = 'lc-suggestions-title';
+                        titleH.textContent = 'Dostępne zbliżone wysokości:';
+                        suggestionsHContainer.appendChild(titleH);
+
+                        [...smallerH, ...largerH].forEach(v => {
+                            const badge = document.createElement('div');
+                            badge.className = 'lc-suggestion-badge';
+                            badge.textContent = `${v} mm`;
+                            badge.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                comboHInput.value = v;
+                                updateVisualizer();
+                            });
+                            suggestionsHContainer.appendChild(badge);
+                        });
+                    }
+                }
+            } else {
+                comboHContainer.style.display = 'none';
             }
-
-            larger.forEach(v => {
-                const badge = document.createElement('div');
-                badge.className = 'lc-suggestion-badge';
-                badge.textContent = `${v} mm`;
-                badge.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    inputElement.value = v;
-                    updateVisualizer();
-                });
-                suggestionsContainer.appendChild(badge);
-            });
         }
 
         function updateVisualizer() {
@@ -961,34 +1146,40 @@ document.addEventListener('DOMContentLoaded', () => {
             shapeEl.style.width = displayW + 'px';
             shapeEl.style.height = displayH + 'px';
 
-            // Update nearest dynamic suggestions
-            updateSuggestionsUI(comboWInput, suggestionsWContainer, state.allWidths);
-            if (state.shape !== 'circle') {
-                updateSuggestionsUI(comboHInput, suggestionsHContainer, state.allHeights);
-            }
+            // Update nearest dynamic suggestions and disable heights
+            updateSuggestionsAndDropdownsUI();
 
             onFilterInput();
         }
 
+        function setShape(shape) {
+            state.shape = shape;
+            if (shape === 'circle') {
+                btnCircle.classList.add('active');
+                btnRect.classList.remove('active');
+                comboHContainer.style.display = 'none';
+                labelW.textContent = 'Średnica (mm):';
+            } else {
+                btnRect.classList.add('active');
+                btnCircle.classList.remove('active');
+                comboHContainer.style.display = 'block';
+                labelW.textContent = 'Szerokość (mm):';
+            }
+            updateVisualizer();
+        }
+
+        state.setShape = setShape;
+        state.updateVisualizer = updateVisualizer;
+
         // Toggle buttons logic
         btnRect.addEventListener('click', (e) => {
             e.preventDefault();
-            btnRect.classList.add('active');
-            btnCircle.classList.remove('active');
-            state.shape = 'rectangle';
-            comboHContainer.style.display = 'block';
-            labelW.textContent = 'Szerokość (mm):';
-            updateVisualizer();
+            setShape('rectangle');
         });
 
         btnCircle.addEventListener('click', (e) => {
             e.preventDefault();
-            btnCircle.classList.add('active');
-            btnRect.classList.remove('active');
-            state.shape = 'circle';
-            comboHContainer.style.display = 'none';
-            labelW.textContent = 'Średnica (mm):';
-            updateVisualizer();
+            setShape('circle');
         });
 
         // Setup combo box
@@ -1059,7 +1250,7 @@ document.addEventListener('DOMContentLoaded', () => {
             comboHInput.value = state.selectedH;
         }
         if (state.shape === 'circle') {
-            btnCircle.click();
+            setShape('circle');
         } else {
             updateVisualizer();
         }
@@ -1148,18 +1339,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let matchW = true;
                                 if (hasW) {
                                     const diffW = Math.abs(size.w - state.selectedW);
-                                    const toleranceW = state.selectedW * 0.15;
+                                    const toleranceW = 1.2;
                                     matchW = diffW <= toleranceW;
                                 }
 
                                 let matchH = true;
                                 if (state.shape === 'circle') {
                                     const diffH = Math.abs(size.h - size.w);
-                                    matchH = diffH <= (size.w * 0.2);
+                                    matchH = diffH <= 1.2;
                                 } else {
                                     if (hasH) {
                                         const diffH = Math.abs(size.h - state.selectedH);
-                                        const toleranceH = state.selectedH * 0.15;
+                                        const toleranceH = 1.2;
                                         matchH = diffH <= toleranceH;
                                     }
                                 }
@@ -1196,8 +1387,28 @@ document.addEventListener('DOMContentLoaded', () => {
             newUrl.searchParams.delete('q');
         }
 
-        console.log("LabelConfigurator Redirecting to URL:", newUrl.toString());
-        window.location.href = newUrl.toString();
+        let urlStr = newUrl.toString();
+        if (urlStr.includes('q=')) {
+            const urlParts = urlStr.split('?');
+            if (urlParts.length > 1) {
+                const queryParams = urlParts[1].split('&');
+                const updatedParams = queryParams.map(param => {
+                    if (param.startsWith('q=')) {
+                        let val = param.substring(2);
+                        val = val.replace(/%2B/gi, '+')
+                                 .replace(/%20/gi, '+')
+                                 .replace(/%2F/gi, '/')
+                                 .replace(/%2C/gi, ',');
+                        return 'q=' + val;
+                    }
+                    return param;
+                });
+                urlStr = urlParts[0] + '?' + updatedParams.join('&');
+            }
+        }
+
+        console.log("LabelConfigurator Redirecting to URL:", urlStr);
+        window.location.href = urlStr;
     }
 
     // Dynamic Server-Side AJAX Filtering
@@ -1230,18 +1441,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         let matchW = true;
                         if (state.selectedW !== null && state.selectedW > 0) {
                             const diffW = Math.abs(size.w - state.selectedW);
-                            const toleranceW = state.selectedW * 0.15;
+                            const toleranceW = 1.2;
                             matchW = diffW <= toleranceW;
                         }
 
                         let matchH = true;
                         if (state.shape === 'circle') {
                             const diffH = Math.abs(size.h - size.w);
-                            matchH = diffH <= (size.w * 0.2);
+                            matchH = diffH <= 1.2;
                         } else {
                             if (state.selectedH !== null && state.selectedH > 0) {
                                 const diffH = Math.abs(size.h - state.selectedH);
-                                const toleranceH = state.selectedH * 0.15;
+                                const toleranceH = 1.2;
                                 matchH = diffH <= toleranceH;
                             }
                         }
@@ -1293,20 +1504,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (foundCards.length > 0) {
             let visibleCount = 0;
             foundCards.forEach(cardEl => {
-                let productId = getProductIdFromCard(cardEl);
-                let matchedProduct = null;
-
-                if (productId) {
-                    matchedProduct = products.find(p => p.id_product == productId);
-                }
-                if (!matchedProduct) {
-                    const anchors = cardEl.querySelectorAll('a[href]');
-                    const hrefs = Array.from(anchors).map(a => getUrlPathname(a.getAttribute('href'))).filter(Boolean);
-                    matchedProduct = products.find(p => {
-                        const pPath = getUrlPathname(p.url);
-                        return hrefs.some(href => href === pPath || href.endsWith(pPath) || pPath.endsWith(href));
-                    });
-                }
+                const matchedProduct = findProductForCard(cardEl);
 
                 // If matchedProduct is found, check if it's in the filtered list.
                 // If it is NOT matched, and filters are active (hasQ), hide it because it doesn't belong to the category's filtered set.
@@ -1353,6 +1551,102 @@ document.addEventListener('DOMContentLoaded', () => {
             if (hasQ) {
                 updatePaginationUI(visibleCount);
             }
+        }
+
+        // Always check and update Mutual Conflict Alert banner
+        updateConflictAlert(filtered);
+    }
+
+    function updateConflictAlert(filtered) {
+        const alertEl = document.getElementById('lc-filter-conflict-alert');
+        if (!alertEl) return;
+
+        // Clean any existing alert
+        alertEl.style.display = 'none';
+        alertEl.innerHTML = '';
+
+        if (!products || products.length === 0) return;
+
+        const activeFiltersWithIndividualCounts = [];
+
+        for (const [fid, state] of Object.entries(filterStates)) {
+            let isActive = false;
+            let label = filtersConfig.find(f => f.id == fid || f.id === fid)?.label || fid;
+            let activeDesc = '';
+
+            if (state.type === 'checkboxes' && state.selected && state.selected.length > 0) {
+                isActive = true;
+                activeDesc = state.selected.join(', ');
+            } else if (state.type === 'slider' && fid !== 'price') {
+                if (state.currentMin > state.min || state.currentMax < state.max) {
+                    isActive = true;
+                    activeDesc = `${state.currentMin} - ${state.currentMax}`;
+                }
+            } else if (state.type === 'size_split') {
+                if (state.selectedW !== null || state.selectedH !== null) {
+                    isActive = true;
+                    activeDesc = state.shape === 'circle' ? `Ø ${state.selectedW} mm` : `${state.selectedW || '?'} x ${state.selectedH || '?'} mm`;
+                }
+            } else if (fid === 'price') {
+                if (state.currentMin > state.min || state.currentMax < state.max) {
+                    isActive = true;
+                    activeDesc = `${state.currentMin.toFixed(2)} - ${state.currentMax.toFixed(2)} zł`;
+                }
+            }
+
+            if (isActive) {
+                const countOnlyThis = products.filter(p => {
+                    if (fid === 'price') {
+                        return p.price >= state.currentMin && p.price <= state.currentMax;
+                    } else if (state.type === 'slider') {
+                        const featVals = getFeatureValues(p, fid);
+                        return featVals.some(v => {
+                            const num = parseNumber(v);
+                            return num >= state.currentMin && num <= state.currentMax;
+                        });
+                    } else if (state.type === 'size_split') {
+                        const featVals = getFeatureValues(p, fid);
+                        return featVals.some(v => {
+                            const size = parseSizeSplit(v);
+                            let matchW = true;
+                            if (state.selectedW !== null && state.selectedW > 0) {
+                                matchW = Math.abs(size.w - state.selectedW) <= 1.2;
+                            }
+                            let matchH = true;
+                            if (state.shape === 'circle') {
+                                matchH = Math.abs(size.h - size.w) <= 1.2;
+                            } else {
+                                if (state.selectedH !== null && state.selectedH > 0) {
+                                    matchH = Math.abs(size.h - state.selectedH) <= 1.2;
+                                }
+                            }
+                            return matchW && matchH;
+                        });
+                    } else if (state.type === 'checkboxes') {
+                        const featVals = getFeatureValues(p, fid);
+                        return featVals.some(v => state.selected.includes(v));
+                    }
+                    return true;
+                }).length;
+
+                activeFiltersWithIndividualCounts.push({
+                    label: label,
+                    desc: activeDesc,
+                    count: countOnlyThis
+                });
+            }
+        }
+
+        // Show conflict alert only if filtered result is 0 and we have active filters
+        if (filtered.length === 0 && activeFiltersWithIndividualCounts.length > 0) {
+            let explanation = '<strong>Wybrane filtry wykluczają się wzajemnie. Brak pozycji do wyświetlenia:</strong><br><br>';
+            activeFiltersWithIndividualCounts.forEach(f => {
+                explanation += `• Cecha <strong>${f.label}</strong> (wybrano: <em>${f.desc}</em>) występuje w <strong>${f.count}</strong> produktach,<br>`;
+            });
+            explanation += '<br>ale żaden produkt nie spełnia wszystkich wybranych kryteriów jednocześnie.';
+
+            alertEl.innerHTML = explanation;
+            alertEl.style.display = 'block';
         }
     }
 
@@ -1645,149 +1939,175 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Parse current URL 'q' parameter to populate selected filters on load
     function parseActiveFiltersFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const qVal = urlParams.get('q');
-        if (!qVal) return;
+        isParsingUrl = true;
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const qVal = urlParams.get('q');
+            if (!qVal) return;
 
-        const parts = qVal.split('/');
-        parts.forEach(part => {
-            const separatorIndex = part.indexOf('-');
-            if (separatorIndex === -1) return;
+            const parts = qVal.split('/');
+            parts.forEach(part => {
+                const separatorIndex = part.indexOf('-');
+                if (separatorIndex === -1) return;
 
-            const paramName = part.substring(0, separatorIndex).replace(/\+/g, ' ').trim();
-            const paramValuesJoined = part.substring(separatorIndex + 1).replace(/\+/g, ' ');
+                const paramName = part.substring(0, separatorIndex).replace(/\+/g, ' ').trim();
+                const paramValuesJoined = part.substring(separatorIndex + 1).replace(/\+/g, ' ');
 
-            // Find matching filter config by label or original_name (case-insensitive)
-            const config = filtersConfig.find(f =>
-                (f.original_name && f.original_name.toLowerCase().trim() === paramName.toLowerCase().trim()) ||
-                (f.label && f.label.toLowerCase().trim() === paramName.toLowerCase().trim())
-            );
-            if (!config) return;
-
-            const fid = config.id;
-            const state = filterStates[fid];
-            if (!state) return;
-
-            if (state.type === 'checkboxes') {
-                const values = paramValuesJoined.split('-');
-                // Map each lowercase value from URL back to its exact case-sensitive value in state.allOptions
-                const mappedValues = values.map(val => {
-                    const matched = state.allOptions.find(opt => opt.toLowerCase().trim() === val.toLowerCase().trim());
-                    return matched || val;
+                // Find matching filter config by label or original_name (case-insensitive, normalized)
+                const config = filtersConfig.find(f => {
+                    const normParam = normalizeStr(paramName);
+                    return (f.original_name && normalizeStr(f.original_name) === normParam) ||
+                           (f.label && normalizeStr(f.label) === normParam);
                 });
-                state.selected = [...new Set(mappedValues)];
+                if (!config) return;
 
-                // Update Trigger Text dynamically
-                const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
-                if (trigger) {
-                    const triggerText = trigger.querySelector('.lc-trigger-text');
-                    if (triggerText) {
-                        triggerText.textContent = state.selected.join(', ');
+                const fid = config.id;
+                const state = filterStates[fid];
+                if (!state) return;
+
+                // Expand the filter group accordion since it has active selections
+                const groupEl = dynamicFiltersContainer.querySelector(`[data-fid="${fid}"]`);
+                if (groupEl) {
+                    const headerEl = groupEl.querySelector('.filter-header');
+                    if (headerEl) {
+                        headerEl.classList.remove('collapsed');
                     }
                 }
 
-                // Synchronize and activate rendered color swatches if applicable
-                const swatchGrid = dynamicFiltersContainer.querySelector(`#grid-${fid}`);
-                if (swatchGrid) {
-                    swatchGrid.querySelectorAll('.swatch-item').forEach(item => {
-                        const val = item.getAttribute('data-val');
-                        if (state.selected.includes(val)) {
-                            item.classList.add('active');
+                if (state.type === 'checkboxes') {
+                    const selectedOptions = [];
+                    let tempStr = normalizeStr(paramValuesJoined);
+
+                    // Sort state.allOptions by length descending of their normalized values
+                    const sortedOptions = [...state.allOptions].sort((a, b) => {
+                        return normalizeStr(b).length - normalizeStr(a).length;
+                    });
+
+                    sortedOptions.forEach(opt => {
+                        const normOpt = normalizeStr(opt);
+                        if (normOpt && tempStr.includes(normOpt)) {
+                            selectedOptions.push(opt);
+                            // Consume the matched part to prevent smaller substrings from matching
+                            tempStr = tempStr.replace(normOpt, '');
+                        }
+                    });
+
+                    state.selected = [...new Set(selectedOptions)];
+
+                    // Update Trigger Text dynamically
+                    const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
+                    if (trigger) {
+                        const triggerText = trigger.querySelector('.lc-trigger-text');
+                        if (triggerText) {
+                            triggerText.textContent = state.selected.join(', ');
+                        }
+                    }
+
+                    // Synchronize and activate rendered color swatches if applicable
+                    const swatchGrid = dynamicFiltersContainer.querySelector(`#grid-${fid}`);
+                    if (swatchGrid) {
+                        swatchGrid.querySelectorAll('.swatch-item').forEach(item => {
+                            const val = item.getAttribute('data-val');
+                            if (state.selected.includes(val)) {
+                                item.classList.add('active');
+                            } else {
+                                item.classList.remove('active');
+                            }
+                        });
+                    }
+                } else if (state.type === 'slider' && fid !== 'price') {
+                    // Handle slider range min/max estimation based on matched values if any
+                    const parsedNums = extractNumbers(paramValuesJoined);
+                    if (parsedNums.length > 0) {
+                        state.currentMin = Math.min(...parsedNums);
+                        state.currentMax = Math.max(...parsedNums);
+
+                        if (state.currentMin < state.min) state.currentMin = state.min;
+                        if (state.currentMax > state.max) state.currentMax = state.max;
+
+                        const minRange = dynamicFiltersContainer.querySelector(`#min-${fid}`);
+                        const maxRange = dynamicFiltersContainer.querySelector(`#max-${fid}`);
+                        const minValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-min`);
+                        const maxValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-max`);
+
+                        if (minRange) minRange.value = state.currentMin;
+                        if (maxRange) maxRange.value = state.currentMax;
+                        if (minValInput) minValInput.value = isNaN(state.currentMin) ? state.min : state.currentMin;
+                        if (maxValInput) maxValInput.value = isNaN(state.currentMax) ? state.max : state.currentMax;
+                    }
+                } else if (state.type === 'size_split') {
+                    const values = paramValuesJoined.split('-');
+                    if (values.length > 0) {
+                        const parsedSizes = values.map(v => parseSizeSplit(v));
+                        const widths = parsedSizes.map(s => s.w).filter(w => w > 0);
+                        const heights = parsedSizes.map(s => s.h).filter(h => h > 0);
+
+                        if (widths.length > 0) {
+                            state.selectedW = widths[0];
+                            const comboWInput = dynamicFiltersContainer.querySelector(`#combo-w-input-${fid}`);
+                            if (comboWInput) {
+                                comboWInput.value = state.selectedW;
+                            }
+                        }
+                        if (heights.length > 0) {
+                            state.selectedH = heights[0];
+                            const comboHInput = dynamicFiltersContainer.querySelector(`#combo-h-input-${fid}`);
+                            if (comboHInput) {
+                                comboHInput.value = state.selectedH;
+                            }
+                        }
+
+                        const isCircle = values.some(valStr => {
+                            const raw = String(valStr).toLowerCase();
+                            return raw.includes('fi') || raw.includes('ø') || raw.includes('okrąg');
+                        });
+
+                        if (isCircle) {
+                            if (typeof state.setShape === 'function') {
+                                state.setShape('circle');
+                            } else {
+                                state.shape = 'circle';
+                            }
                         } else {
-                            item.classList.remove('active');
+                            if (typeof state.setShape === 'function') {
+                                state.setShape('rectangle');
+                            } else {
+                                state.shape = 'rectangle';
+                            }
                         }
-                    });
-                }
-            } else if (state.type === 'slider' && fid !== 'price') {
-                // Handle slider range min/max estimation based on matched values if any
-                const values = paramValuesJoined.split('-');
-                if (values.length > 0) {
-                    const parsedNums = values.map(v => parseNumber(v));
-                    state.currentMin = Math.min(...parsedNums);
-                    state.currentMax = Math.max(...parsedNums);
 
-                    const minRange = dynamicFiltersContainer.querySelector(`#min-${fid}`);
-                    const maxRange = dynamicFiltersContainer.querySelector(`#max-${fid}`);
-                    const minValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-min`);
-                    const maxValInput = dynamicFiltersContainer.querySelector(`#val-${fid}-max`);
-
-                    if (minRange) minRange.value = state.currentMin;
-                    if (maxRange) maxRange.value = state.currentMax;
-                    if (minValInput) minValInput.value = state.currentMin;
-                    if (maxValInput) maxValInput.value = state.currentMax;
-                }
-            } else if (state.type === 'size_split') {
-                const values = paramValuesJoined.split('-');
-                if (values.length > 0) {
-                    const parsedSizes = values.map(v => parseSizeSplit(v));
-                    const widths = parsedSizes.map(s => s.w).filter(w => w > 0);
-                    const heights = parsedSizes.map(s => s.h).filter(h => h > 0);
-
-                    if (widths.length > 0) {
-                        state.selectedW = widths[0];
-                        const comboWInput = dynamicFiltersContainer.querySelector(`#combo-w-input-${fid}`);
-                        if (comboWInput) {
-                            comboWInput.value = state.selectedW;
-                            comboWInput.dispatchEvent(new Event('change'));
+                        if (typeof state.updateVisualizer === 'function') {
+                            state.updateVisualizer();
                         }
                     }
-                    if (heights.length > 0) {
-                        state.selectedH = heights[0];
-                        const comboHInput = dynamicFiltersContainer.querySelector(`#combo-h-input-${fid}`);
-                        if (comboHInput) {
-                            comboHInput.value = state.selectedH;
-                            comboHInput.dispatchEvent(new Event('change'));
-                        }
-                    }
+                } else if (fid === 'price') {
+                    // PrestaShop format: Cena-PLN-10.00-50.00 or similar
+                    const values = paramValuesJoined.split('-');
+                    if (values.length >= 2) {
+                        state.currentMin = parseFloat(values[0]) || state.min;
+                        state.currentMax = parseFloat(values[1]) || state.max;
 
-                    const isCircle = values.some(valStr => {
-                        const raw = String(valStr).toLowerCase();
-                        return raw.includes('fi') || raw.includes('ø') || raw.includes('okrąg');
-                    });
+                        const minRange = dynamicFiltersContainer.querySelector(`#min-price`);
+                        const maxRange = dynamicFiltersContainer.querySelector(`#max-price`);
+                        const minValInput = dynamicFiltersContainer.querySelector(`#val-price-min`);
+                        const maxValInput = dynamicFiltersContainer.querySelector(`#val-price-max`);
 
-                    const btnCircle = dynamicFiltersContainer.querySelector(`#btn-shape-circle-${fid}`);
-                    const btnRect = dynamicFiltersContainer.querySelector(`#btn-shape-rect-${fid}`);
-
-                    if (isCircle) {
-                        state.shape = 'circle';
-                        if (btnCircle) {
-                            btnCircle.classList.add('active');
-                            if (btnRect) btnRect.classList.remove('active');
-                            btnCircle.click();
-                        }
-                    } else {
-                        state.shape = 'rectangle';
-                        if (btnRect) {
-                            btnRect.classList.add('active');
-                            if (btnCircle) btnCircle.classList.remove('active');
-                            btnRect.click();
-                        }
+                        if (minRange) minRange.value = state.currentMin;
+                        if (maxRange) maxRange.value = state.currentMax;
+                        if (minValInput) minValInput.value = state.currentMin.toFixed(2);
+                        if (maxValInput) maxValInput.value = state.currentMax.toFixed(2);
                     }
                 }
-            } else if (fid === 'price') {
-                // PrestaShop format: Cena-PLN-10.00-50.00 or similar
-                const values = paramValuesJoined.split('-');
-                if (values.length >= 2) {
-                    state.currentMin = parseFloat(values[0]) || state.min;
-                    state.currentMax = parseFloat(values[1]) || state.max;
-
-                    const minRange = dynamicFiltersContainer.querySelector(`#min-price`);
-                    const maxRange = dynamicFiltersContainer.querySelector(`#max-price`);
-                    const minValInput = dynamicFiltersContainer.querySelector(`#val-price-min`);
-                    const maxValInput = dynamicFiltersContainer.querySelector(`#val-price-max`);
-
-                    if (minRange) minRange.value = state.currentMin;
-                    if (maxRange) maxRange.value = state.currentMax;
-                    if (minValInput) minValInput.value = state.currentMin.toFixed(2);
-                    if (maxValInput) maxValInput.value = state.currentMax.toFixed(2);
-                }
-            }
-        });
+            });
+        } finally {
+            isParsingUrl = false;
+        }
     }
 
     parseActiveFiltersFromUrl();
     updateAllCheckboxesPills();
     renderActiveFiltersTags();
+    isInitializing = false;
 
     // Preserve 'q' parameter when clicking on pagination links or sort order links
     function preserveQueryParamOnNavigation() {
