@@ -422,15 +422,6 @@ class LabelConfigurator extends Module implements WidgetInterface
             $products_raw = Db::getInstance()->executeS($sql);
         }
 
-        // If no products found via category, fallback to global catalog active products
-        if (empty($products_raw)) {
-            $sql = "SELECT DISTINCT p.id_product, pl.name, pl.link_rewrite
-                    FROM "._DB_PREFIX_."product p
-                    JOIN "._DB_PREFIX_."product_shop ps ON (p.id_product = ps.id_product AND ps.id_shop = $id_shop)
-                    LEFT JOIN "._DB_PREFIX_."product_lang pl ON (p.id_product = pl.id_product AND pl.id_lang = $id_lang AND pl.id_shop = $id_shop)
-                    WHERE ps.active = 1";
-            $products_raw = Db::getInstance()->executeS($sql);
-        }
 
         $results = [];
 
@@ -550,13 +541,13 @@ class LabelConfigurator extends Module implements WidgetInterface
         $filters_config = false;
         if ($id_category > 0) {
             $filters_config = Configuration::get('LC_FILTERS_CONFIG_' . $id_category);
-            if ($filters_config === '[]' || empty($filters_config)) {
+            if ($filters_config === '') {
                 $filters_config = false;
             }
         }
-        if (!$filters_config) {
+        if ($filters_config === false) {
             $filters_config = Configuration::get('LC_FILTERS_CONFIG');
-            if ($filters_config === '[]' || empty($filters_config)) {
+            if ($filters_config === '' || empty($filters_config)) {
                 $filters_config = false;
             }
         }

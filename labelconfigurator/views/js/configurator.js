@@ -60,14 +60,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnApplyFilters = document.getElementById('btn-apply-filters');
 
     // Configuration settings
-    const isInstant = false; // Always force Apply button as per user's explicit request
+    const isInstant = appEl.getAttribute('data-instant') === '1';
     const ajaxUrl = appEl.getAttribute('data-ajax-url') || '';
     const idCategory = parseInt(appEl.getAttribute('data-id-category')) || 0;
 
     // Show/hide Apply Button based on configuration
     if (btnApplyFilters) {
-        btnApplyFilters.style.display = 'block';
-        btnApplyFilters.addEventListener('click', () => {
+        btnApplyFilters.style.display = isInstant ? 'none' : 'block';
+        btnApplyFilters.addEventListener('click', (e) => {
+            e.preventDefault();
             applyFiltersByRedirect();
         });
     }

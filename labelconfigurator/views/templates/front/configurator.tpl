@@ -30,7 +30,7 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
 <!-- Inject Configurator Javascript with Timestamp Parameter to Force Cache Busting -->
-<script src="{$urls.modules_url}labelconfigurator/views/js/configurator.js?v={$smarty.now}" defer></script>
+<script src="/modules/labelconfigurator/views/js/configurator.js?v={$smarty.now}" defer></script>
 
 <style>
     #configurator-app { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; width: 100%; box-sizing: border-box; }
