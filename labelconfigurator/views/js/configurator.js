@@ -1150,25 +1150,34 @@ document.addEventListener('DOMContentLoaded', () => {
             onFilterInput();
         }
 
+        function setShape(shape) {
+            state.shape = shape;
+            if (shape === 'circle') {
+                btnCircle.classList.add('active');
+                btnRect.classList.remove('active');
+                comboHContainer.style.display = 'none';
+                labelW.textContent = 'Średnica (mm):';
+            } else {
+                btnRect.classList.add('active');
+                btnCircle.classList.remove('active');
+                comboHContainer.style.display = 'block';
+                labelW.textContent = 'Szerokość (mm):';
+            }
+            updateVisualizer();
+        }
+
+        state.setShape = setShape;
+        state.updateVisualizer = updateVisualizer;
+
         // Toggle buttons logic
         btnRect.addEventListener('click', (e) => {
             e.preventDefault();
-            btnRect.classList.add('active');
-            btnCircle.classList.remove('active');
-            state.shape = 'rectangle';
-            comboHContainer.style.display = 'block';
-            labelW.textContent = 'Szerokość (mm):';
-            updateVisualizer();
+            setShape('rectangle');
         });
 
         btnCircle.addEventListener('click', (e) => {
             e.preventDefault();
-            btnCircle.classList.add('active');
-            btnRect.classList.remove('active');
-            state.shape = 'circle';
-            comboHContainer.style.display = 'none';
-            labelW.textContent = 'Średnica (mm):';
-            updateVisualizer();
+            setShape('circle');
         });
 
         // Setup combo box
@@ -1239,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
             comboHInput.value = state.selectedH;
         }
         if (state.shape === 'circle') {
-            btnCircle.click();
+            setShape('circle');
         } else {
             updateVisualizer();
         }
@@ -1376,8 +1385,28 @@ document.addEventListener('DOMContentLoaded', () => {
             newUrl.searchParams.delete('q');
         }
 
-        console.log("LabelConfigurator Redirecting to URL:", newUrl.toString());
-        window.location.href = newUrl.toString();
+        let urlStr = newUrl.toString();
+        if (urlStr.includes('q=')) {
+            const urlParts = urlStr.split('?');
+            if (urlParts.length > 1) {
+                const queryParams = urlParts[1].split('&');
+                const updatedParams = queryParams.map(param => {
+                    if (param.startsWith('q=')) {
+                        let val = param.substring(2);
+                        val = val.replace(/%2B/gi, '+')
+                                 .replace(/%20/gi, '+')
+                                 .replace(/%2F/gi, '/')
+                                 .replace(/%2C/gi, ',');
+                        return 'q=' + val;
+                    }
+                    return param;
+                });
+                urlStr = urlParts[0] + '?' + updatedParams.join('&');
+            }
+        }
+
+        console.log("LabelConfigurator Redirecting to URL:", urlStr);
+        window.location.href = urlStr;
     }
 
     // Dynamic Server-Side AJAX Filtering
@@ -1911,7 +1940,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             const comboWInput = dynamicFiltersContainer.querySelector(`#combo-w-input-${fid}`);
                             if (comboWInput) {
                                 comboWInput.value = state.selectedW;
-                                comboWInput.dispatchEvent(new Event('change'));
                             }
                         }
                         if (heights.length > 0) {
@@ -1919,7 +1947,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             const comboHInput = dynamicFiltersContainer.querySelector(`#combo-h-input-${fid}`);
                             if (comboHInput) {
                                 comboHInput.value = state.selectedH;
-                                comboHInput.dispatchEvent(new Event('change'));
                             }
                         }
 
@@ -1928,23 +1955,22 @@ document.addEventListener('DOMContentLoaded', () => {
                             return raw.includes('fi') || raw.includes('ø') || raw.includes('okrąg');
                         });
 
-                        const btnCircle = dynamicFiltersContainer.querySelector(`#btn-shape-circle-${fid}`);
-                        const btnRect = dynamicFiltersContainer.querySelector(`#btn-shape-rect-${fid}`);
-
                         if (isCircle) {
-                            state.shape = 'circle';
-                            if (btnCircle) {
-                                btnCircle.classList.add('active');
-                                if (btnRect) btnRect.classList.remove('active');
-                                btnCircle.click();
+                            if (typeof state.setShape === 'function') {
+                                state.setShape('circle');
+                            } else {
+                                state.shape = 'circle';
                             }
                         } else {
-                            state.shape = 'rectangle';
-                            if (btnRect) {
-                                btnRect.classList.add('active');
-                                if (btnCircle) btnCircle.classList.remove('active');
-                                btnRect.click();
+                            if (typeof state.setShape === 'function') {
+                                state.setShape('rectangle');
+                            } else {
+                                state.shape = 'rectangle';
                             }
+                        }
+
+                        if (typeof state.updateVisualizer === 'function') {
+                            state.updateVisualizer();
                         }
                     }
                 } else if (fid === 'price') {
