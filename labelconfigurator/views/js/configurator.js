@@ -35,6 +35,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return [];
     }
 
+    // Helper: normalize string for safe comparison (strips spaces, hyphens, slashes, etc.)
+    function normalizeStr(str) {
+        if (!str) return '';
+        return str.toString()
+            .toLowerCase()
+            .replace(/[\s\t\-\/\(\)\+,;:\.\ø]/g, '')
+            .trim();
+    }
+
+    // Helper: extract all numbers (integers or decimals) from a string
+    function extractNumbers(str) {
+        if (!str) return [];
+        const normalized = str.replace(/,/g, '.');
+        const matches = normalized.match(/(\d+(?:\.\d+)?)/g);
+        if (!matches) return [];
+        return matches.map(m => parseFloat(m));
+    }
+
     let products = [];
     let filtersConfig = [];
 
@@ -840,6 +858,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const comboHDropdown = parentEl.querySelector(`#combo-h-dropdown-${id}`);
         const suggestionsHContainer = parentEl.querySelector(`#combo-h-suggestions-${id}`);
 
+        const pairs = getAvailablePairs();
+
+        function getAvailablePairs() {
+            const res = [];
+            products.forEach(p => {
+                const featVals = getFeatureValues(p, id);
+                featVals.forEach(v => {
+                    if (v) {
+                        const parsed = parseSizeSplit(v);
+                        if (parsed.w > 0) {
+                            res.push({ w: parsed.w, h: parsed.h });
+                        }
+                    }
+                });
+            });
+            return res;
+        }
+
         function getClosestValues(targetVal, allAvailable) {
             if (!targetVal || isNaN(targetVal) || targetVal <= 0) {
                 // Return first 6 available values as general suggestions
@@ -862,51 +898,162 @@ document.addEventListener('DOMContentLoaded', () => {
             return { smaller, larger, exact };
         }
 
-        function updateSuggestionsUI(inputElement, suggestionsContainer, allValues) {
-            const currentVal = parseFloat(inputElement.value) || 0;
-            const { smaller, larger, exact } = getClosestValues(currentVal, allValues);
+        function updateSuggestionsAndDropdownsUI() {
+            const wVal = parseFloat(comboWInput.value) || 0;
+            const hVal = parseFloat(comboHInput.value) || 0;
 
-            suggestionsContainer.innerHTML = '';
+            // 1. Update Width suggestions
+            const uniqueWidths = [...new Set(pairs.map(p => p.w))].sort((a, b) => a - b);
+            const { smaller: smallerW, larger: largerW, exact: exactW } = getClosestValues(wVal, uniqueWidths);
 
-            if (smaller.length === 0 && larger.length === 0 && !exact) {
-                return;
+            suggestionsWContainer.innerHTML = '';
+
+            if (wVal > 0) {
+                const titleW = document.createElement('div');
+                titleW.className = 'lc-suggestions-title';
+                titleW.textContent = exactW ? 'Wybrana szerokość jest dostępna. Inne zbliżone:' : 'Brak dokładnej szerokości. Proponowane zbliżone:';
+                suggestionsWContainer.appendChild(titleW);
+
+                const listW = [...smallerW, ...largerW];
+                listW.forEach(v => {
+                    const badge = document.createElement('div');
+                    badge.className = 'lc-suggestion-badge';
+                    badge.textContent = `${v} mm`;
+                    badge.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        comboWInput.value = v;
+                        updateVisualizer();
+                    });
+                    suggestionsWContainer.appendChild(badge);
+                });
             }
 
-            const title = document.createElement('div');
-            title.className = 'lc-suggestions-title';
-            title.textContent = 'Dostępne zbliżone (wybierz):';
-            suggestionsContainer.appendChild(title);
+            // 2. Handle Height Suggestions and Dropdown options based on Width
+            if (state.shape !== 'circle') {
+                comboHContainer.style.display = 'block';
+                const hOptions = comboHDropdown.querySelectorAll('.lc-combo-option');
 
-            smaller.forEach(v => {
-                const badge = document.createElement('div');
-                badge.className = 'lc-suggestion-badge';
-                badge.textContent = `${v} mm`;
-                badge.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    inputElement.value = v;
-                    updateVisualizer();
-                });
-                suggestionsContainer.appendChild(badge);
-            });
+                if (wVal > 0) {
+                    // Find Heights that exist with the chosen Width (within 1.2 mm tolerance)
+                    const matchingPairs = pairs.filter(p => Math.abs(p.w - wVal) <= 1.2);
+                    const allowedHeights = [...new Set(matchingPairs.map(p => p.h))].sort((a, b) => a - b);
 
-            if (exact) {
-                const badge = document.createElement('div');
-                badge.className = 'lc-suggestion-badge exact active';
-                badge.textContent = `${exact} mm`;
-                suggestionsContainer.appendChild(badge);
+                    // If we have allowed heights
+                    if (allowedHeights.length > 0) {
+                        // Enable Height input and toggle
+                        comboHInput.disabled = false;
+                        comboHInput.style.opacity = '1';
+                        comboHToggle.style.pointerEvents = 'auto';
+                        comboHToggle.style.opacity = '1';
+
+                        // Enable/Disable height dropdown options
+                        hOptions.forEach(opt => {
+                            const val = parseFloat(opt.getAttribute('data-value')) || 0;
+                            const isAllowed = allowedHeights.some(ah => Math.abs(ah - val) <= 1.2);
+                            if (isAllowed) {
+                                opt.classList.remove('disabled');
+                                opt.style.pointerEvents = 'auto';
+                                opt.style.opacity = '1';
+                                opt.style.textDecoration = 'none';
+                            } else {
+                                opt.classList.add('disabled');
+                                opt.style.pointerEvents = 'none';
+                                opt.style.opacity = '0.3';
+                                opt.style.textDecoration = 'line-through';
+                            }
+                        });
+
+                        // Build Height suggestions UI
+                        suggestionsHContainer.innerHTML = '';
+                        const titleH = document.createElement('div');
+                        titleH.className = 'lc-suggestions-title';
+
+                        const exactH = allowedHeights.find(ah => Math.abs(ah - hVal) <= 1.2);
+                        if (hVal > 0 && exactH) {
+                            titleH.textContent = `Dostępne inne wysokości dla szerokości ${wVal} mm:`;
+                        } else if (hVal > 0) {
+                            titleH.textContent = `Wybrana wysokość jest niedostępna dla szerokości ${wVal} mm. Dostępne wysokości:`;
+                        } else {
+                            titleH.textContent = `Wybierz jedną z dostępnych wysokości dla szerokości ${wVal} mm:`;
+                        }
+                        suggestionsHContainer.appendChild(titleH);
+
+                        allowedHeights.forEach(v => {
+                            const badge = document.createElement('div');
+                            badge.className = 'lc-suggestion-badge';
+                            if (Math.abs(v - hVal) <= 1.2) {
+                                badge.classList.add('exact', 'active');
+                            }
+                            badge.textContent = `${v} mm`;
+                            badge.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                comboHInput.value = v;
+                                updateVisualizer();
+                            });
+                            suggestionsHContainer.appendChild(badge);
+                        });
+                    } else {
+                        // No matching heights at all for this width! Disable height input.
+                        comboHInput.disabled = true;
+                        comboHInput.style.opacity = '0.5';
+                        comboHToggle.style.pointerEvents = 'none';
+                        comboHToggle.style.opacity = '0.5';
+                        comboHInput.value = '';
+
+                        hOptions.forEach(opt => {
+                            opt.classList.add('disabled');
+                            opt.style.pointerEvents = 'none';
+                            opt.style.opacity = '0.3';
+                            opt.style.textDecoration = 'line-through';
+                        });
+
+                        suggestionsHContainer.innerHTML = `
+                            <div class="lc-suggestions-title" style="color: #dc2626;">
+                                Brak dostępnych wysokości dla szerokości ${wVal} mm!
+                            </div>
+                        `;
+                    }
+                } else {
+                    // No width selected, restore all height options
+                    comboHInput.disabled = false;
+                    comboHInput.style.opacity = '1';
+                    comboHToggle.style.pointerEvents = 'auto';
+                    comboHToggle.style.opacity = '1';
+
+                    hOptions.forEach(opt => {
+                        opt.classList.remove('disabled');
+                        opt.style.pointerEvents = 'auto';
+                        opt.style.opacity = '1';
+                        opt.style.textDecoration = 'none';
+                    });
+
+                    // General height suggestions
+                    suggestionsHContainer.innerHTML = '';
+                    if (hVal > 0) {
+                        const uniqueHeights = [...new Set(pairs.map(p => p.h))].sort((a, b) => a - b);
+                        const { smaller: smallerH, larger: largerH } = getClosestValues(hVal, uniqueHeights);
+
+                        const titleH = document.createElement('div');
+                        titleH.className = 'lc-suggestions-title';
+                        titleH.textContent = 'Dostępne zbliżone wysokości:';
+                        suggestionsHContainer.appendChild(titleH);
+
+                        [...smallerH, ...largerH].forEach(v => {
+                            const badge = document.createElement('div');
+                            badge.className = 'lc-suggestion-badge';
+                            badge.textContent = `${v} mm`;
+                            badge.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                comboHInput.value = v;
+                                updateVisualizer();
+                            });
+                            suggestionsHContainer.appendChild(badge);
+                        });
+                    }
+                }
+            } else {
+                comboHContainer.style.display = 'none';
             }
-
-            larger.forEach(v => {
-                const badge = document.createElement('div');
-                badge.className = 'lc-suggestion-badge';
-                badge.textContent = `${v} mm`;
-                badge.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    inputElement.value = v;
-                    updateVisualizer();
-                });
-                suggestionsContainer.appendChild(badge);
-            });
         }
 
         function updateVisualizer() {
@@ -961,11 +1108,8 @@ document.addEventListener('DOMContentLoaded', () => {
             shapeEl.style.width = displayW + 'px';
             shapeEl.style.height = displayH + 'px';
 
-            // Update nearest dynamic suggestions
-            updateSuggestionsUI(comboWInput, suggestionsWContainer, state.allWidths);
-            if (state.shape !== 'circle') {
-                updateSuggestionsUI(comboHInput, suggestionsHContainer, state.allHeights);
-            }
+            // Update nearest dynamic suggestions and disable heights
+            updateSuggestionsAndDropdownsUI();
 
             onFilterInput();
         }
@@ -1148,18 +1292,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let matchW = true;
                                 if (hasW) {
                                     const diffW = Math.abs(size.w - state.selectedW);
-                                    const toleranceW = state.selectedW * 0.15;
+                                    const toleranceW = 1.2;
                                     matchW = diffW <= toleranceW;
                                 }
 
                                 let matchH = true;
                                 if (state.shape === 'circle') {
                                     const diffH = Math.abs(size.h - size.w);
-                                    matchH = diffH <= (size.w * 0.2);
+                                    matchH = diffH <= 1.2;
                                 } else {
                                     if (hasH) {
                                         const diffH = Math.abs(size.h - state.selectedH);
-                                        const toleranceH = state.selectedH * 0.15;
+                                        const toleranceH = 1.2;
                                         matchH = diffH <= toleranceH;
                                     }
                                 }
@@ -1230,18 +1374,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         let matchW = true;
                         if (state.selectedW !== null && state.selectedW > 0) {
                             const diffW = Math.abs(size.w - state.selectedW);
-                            const toleranceW = state.selectedW * 0.15;
+                            const toleranceW = 1.2;
                             matchW = diffW <= toleranceW;
                         }
 
                         let matchH = true;
                         if (state.shape === 'circle') {
                             const diffH = Math.abs(size.h - size.w);
-                            matchH = diffH <= (size.w * 0.2);
+                            matchH = diffH <= 1.2;
                         } else {
                             if (state.selectedH !== null && state.selectedH > 0) {
                                 const diffH = Math.abs(size.h - state.selectedH);
-                                const toleranceH = state.selectedH * 0.15;
+                                const toleranceH = 1.2;
                                 matchH = diffH <= toleranceH;
                             }
                         }
@@ -1657,11 +1801,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const paramName = part.substring(0, separatorIndex).replace(/\+/g, ' ').trim();
             const paramValuesJoined = part.substring(separatorIndex + 1).replace(/\+/g, ' ');
 
-            // Find matching filter config by label or original_name (case-insensitive)
-            const config = filtersConfig.find(f =>
-                (f.original_name && f.original_name.toLowerCase().trim() === paramName.toLowerCase().trim()) ||
-                (f.label && f.label.toLowerCase().trim() === paramName.toLowerCase().trim())
-            );
+            // Find matching filter config by label or original_name (case-insensitive, normalized)
+            const config = filtersConfig.find(f => {
+                const normParam = normalizeStr(paramName);
+                return (f.original_name && normalizeStr(f.original_name) === normParam) ||
+                       (f.label && normalizeStr(f.label) === normParam);
+            });
             if (!config) return;
 
             const fid = config.id;
@@ -1669,13 +1814,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!state) return;
 
             if (state.type === 'checkboxes') {
-                const values = paramValuesJoined.split('-');
-                // Map each lowercase value from URL back to its exact case-sensitive value in state.allOptions
-                const mappedValues = values.map(val => {
-                    const matched = state.allOptions.find(opt => opt.toLowerCase().trim() === val.toLowerCase().trim());
-                    return matched || val;
+                const selectedOptions = [];
+                let tempStr = normalizeStr(paramValuesJoined);
+
+                // Sort state.allOptions by length descending of their normalized values
+                const sortedOptions = [...state.allOptions].sort((a, b) => {
+                    return normalizeStr(b).length - normalizeStr(a).length;
                 });
-                state.selected = [...new Set(mappedValues)];
+
+                sortedOptions.forEach(opt => {
+                    const normOpt = normalizeStr(opt);
+                    if (normOpt && tempStr.includes(normOpt)) {
+                        selectedOptions.push(opt);
+                        // Consume the matched part to prevent smaller substrings from matching
+                        tempStr = tempStr.replace(normOpt, '');
+                    }
+                });
+
+                state.selected = [...new Set(selectedOptions)];
 
                 // Update Trigger Text dynamically
                 const trigger = dynamicFiltersContainer.querySelector(`#trigger-${fid}`);
@@ -1700,11 +1856,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (state.type === 'slider' && fid !== 'price') {
                 // Handle slider range min/max estimation based on matched values if any
-                const values = paramValuesJoined.split('-');
-                if (values.length > 0) {
-                    const parsedNums = values.map(v => parseNumber(v));
+                const parsedNums = extractNumbers(paramValuesJoined);
+                if (parsedNums.length > 0) {
                     state.currentMin = Math.min(...parsedNums);
                     state.currentMax = Math.max(...parsedNums);
+
+                    if (state.currentMin < state.min) state.currentMin = state.min;
+                    if (state.currentMax > state.max) state.currentMax = state.max;
 
                     const minRange = dynamicFiltersContainer.querySelector(`#min-${fid}`);
                     const maxRange = dynamicFiltersContainer.querySelector(`#max-${fid}`);
@@ -1713,8 +1871,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (minRange) minRange.value = state.currentMin;
                     if (maxRange) maxRange.value = state.currentMax;
-                    if (minValInput) minValInput.value = state.currentMin;
-                    if (maxValInput) maxValInput.value = state.currentMax;
+                    if (minValInput) minValInput.value = isNaN(state.currentMin) ? state.min : state.currentMin;
+                    if (maxValInput) maxValInput.value = isNaN(state.currentMax) ? state.max : state.currentMax;
                 }
             } else if (state.type === 'size_split') {
                 const values = paramValuesJoined.split('-');
