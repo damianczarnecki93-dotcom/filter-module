@@ -65,7 +65,7 @@ a:not(.btn):hover, a:not(.btn):hover b, a:not(.btn):hover strong, a:not(.btn):fo
 #header .header-top {
     background: #ffffff !important;
     border-bottom: 3px solid var(--herma-orange) !important;
-    padding: 5px 0 !important; /* Skonsolidowano padding (poprzednio nadpisywany z 0 na 5px) */
+    padding: 5px 0 !important;
 }
 
 .search-widget form input[type=text] {
@@ -244,13 +244,21 @@ a:not(.btn):hover, a:not(.btn):hover b, a:not(.btn):hover strong, a:not(.btn):fo
 /* ==========================================================================
    7. LISTA PRODUKTÓW (GRID) - DESKTOP I MOBILE
    ========================================================================== */
+/* Usunięto zduplikowane ramki z .product-miniature - styl kafelka skupiony w całości na .thumbnail-container */
 .product-miniature .thumbnail-container {
     background: #ffffff !important;
     border: 1px solid var(--border-color) !important;
     border-radius: var(--card-radius) !important;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04) !important;
-    padding: 15px !important;
+    padding: 16px !important;
     transition: all 0.2s ease-in-out !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 440px !important; /* Likwiduje biały margines na dole na desktopie */
+    overflow: visible !important;
+    position: relative !important;
+    box-sizing: border-box !important;
 }
 .product-miniature .thumbnail-container:hover {
     box-shadow: 0 10px 25px rgba(0, 76, 122, 0.08) !important;
@@ -351,7 +359,7 @@ a:not(.btn):hover, a:not(.btn):hover b, a:not(.btn):hover strong, a:not(.btn):fo
 }
 
 /* ==========================================================================
-   10. KOMPLETNY I OSTATECZNY STYL HERMA DLA MODUŁU KATEGORII
+   10. KOMPLETNY I OSTATECZNY STYL HERMA DLA MODUŁU KATEGORII (MENU LEWEJ KOLUMNY)
    ========================================================================== */
 #categories_block_left.verticalblockcategories {
     background-color: #ffffff !important;
@@ -387,6 +395,7 @@ a:not(.btn):hover, a:not(.btn):hover b, a:not(.btn):hover strong, a:not(.btn):fo
     position: relative !important;
     border-bottom: 1px solid #f1f5f9 !important;
     padding: 0 !important;
+    background-color: #ffffff !important; /* Wszystkie pozycje mają domyślnie białe tło */
 }
 
 #categories_block_left.verticalblockcategories ul.block_content > li:last-child {
@@ -397,25 +406,28 @@ a:not(.btn):hover, a:not(.btn):hover b, a:not(.btn):hover strong, a:not(.btn):fo
     display: block !important;
     padding: 12px 35px 12px 15px !important;
     font-size: 0.95rem !important;
-    font-weight: 600 !important;
+    font-weight: 500 !important; /* Domyślnie standardowa czcionka */
     color: #334155 !important;
     text-decoration: none !important;
     transition: all 0.2s ease !important;
     border-left: 3px solid transparent !important;
+    background-color: #ffffff !important; /* Tło linku domyślnie białe */
 }
 
+/* Po najechaniu (hover) błękitny/szary akcent jako tło */
 #categories_block_left.verticalblockcategories ul.block_content > li > a:hover {
     color: var(--herma-blue) !important;
-    background-color: #f8fafc !important;
+    background-color: #f0f9ff !important; /* Akcent w postaci jasnoniebieskiego tła */
     border-left-color: var(--herma-blue) !important;
     padding-left: 18px !important;
 }
 
+/* Pozycja aktywna: białe tło i pogrubiona czcionka */
 #categories_block_left.verticalblockcategories ul.block_content > li.active > a,
 #categories_block_left.verticalblockcategories ul.block_content > li.current > a {
     color: var(--herma-blue) !important;
-    font-weight: 700 !important;
-    background-color: #f0f9ff !important;
+    font-weight: 700 !important; /* Pogrubiona czcionka aktywnej pozycji */
+    background-color: #ffffff !important; /* Czyste białe tło */
     border-left-color: var(--herma-blue) !important;
 }
 
@@ -521,16 +533,15 @@ a:not(.btn):hover, a:not(.btn):hover b, a:not(.btn):hover strong, a:not(.btn):fo
 /* ==========================================================================
    12. KOMPLETNY UKŁAD KAFELKÓW PRODUKTU (WIDOK DESKTOP / KOMPUTER)
    ========================================================================== */
+/* Zewnętrzny kontener ma wyczyszczoną ramkę i tło, co eliminuje podwójną obwódkę */
 .product-miniature {
-    display: flex !important;
-    flex-direction: column !important;
-    background: #ffffff !important;
-    padding: 16px !important;
-    border: 1px solid #e5e7eb !important;
-    border-radius: 8px !important;
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     box-sizing: border-box !important;
     height: auto !important;
-    min-height: 440px !important; /* Likwiduje biały margines na dole na desktopie */
     overflow: visible !important;
     position: relative !important;
 }
@@ -1111,11 +1122,10 @@ body.category-id-2 #search_filters_wrapper {
         word-wrap: break-word;
     }
 
-    /* Kafelki produktów na telefonach */
+    /* Kafelki produktów na telefonach - stylizacja zintegrowana w .thumbnail-container */
     #products .thumbnail-container,
     .products .thumbnail-container,
-    .product-miniature .thumbnail-container,
-    .product-miniature {
+    .product-miniature .thumbnail-container {
         padding: 8px !important;
         height: auto !important;
         min-height: 0 !important;
@@ -1124,6 +1134,13 @@ body.category-id-2 #search_filters_wrapper {
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
+    }
+    .product-miniature {
+        background: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
     }
     .product-miniature .product-thumbnail-wrapper {
         height: 100px !important;
