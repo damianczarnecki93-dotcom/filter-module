@@ -1851,6 +1851,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', (e) => { e.preventDefault(); closeSidebar(); });
     if (overlay) overlay.addEventListener('click', (e) => { e.preventDefault(); closeSidebar(); });
 
+    // Setup IntersectionObserver to only show Mobile FAB when the main inline button scrolls out of view
+    if ('IntersectionObserver' in window && btnMobileToggle && btnMobileFab) {
+        btnMobileFab.style.setProperty('display', 'none', 'important');
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    btnMobileFab.style.setProperty('display', 'none', 'important');
+                } else {
+                    // Only show if we are on a mobile screen width (width < 991px)
+                    if (window.innerWidth <= 991) {
+                        btnMobileFab.style.setProperty('display', 'flex', 'important');
+                    } else {
+                        btnMobileFab.style.setProperty('display', 'none', 'important');
+                    }
+                }
+            });
+        }, {
+            threshold: 0
+        });
+
+        observer.observe(btnMobileToggle);
+    }
+
     // Close open custom dropdowns when clicking outside
     document.addEventListener('click', () => {
         document.querySelectorAll('.lc-dropdown-menu').forEach(m => {

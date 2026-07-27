@@ -448,7 +448,6 @@
     /* Media queries for Responsiveness */
     @media (max-width: 991px) {
         .lc-mobile-toggle-btn { display: flex; }
-        .lc-mobile-fab { display: flex; }
 
         .config-sidebar {
             position: fixed;
