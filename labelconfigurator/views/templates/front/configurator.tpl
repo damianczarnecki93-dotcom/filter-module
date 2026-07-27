@@ -473,16 +473,13 @@
         }
 
         .close-sidebar-btn {
-            display: block;
+            display: flex;
             background: #f1f5f9;
-            border: none;
             border-radius: 50%;
             width: 36px;
             height: 36px;
             font-size: 24px;
             color: #475569;
-            cursor: pointer;
-            display: flex;
             align-items: center;
             justify-content: center;
             transition: background 0.2s;

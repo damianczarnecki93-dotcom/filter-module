@@ -19,17 +19,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             return JSON.parse(str);
-        } catch (e) {}
+        } catch {}
 
         try {
             const decoded = decodeHtml(str);
             return JSON.parse(decoded);
-        } catch (e) {}
+        } catch {}
 
         try {
             const decodedBase64 = atob(str);
             return JSON.parse(decodedBase64);
-        } catch (e) {}
+        } catch {}
 
         console.error("Failed to parse JSON string:", str);
         return [];
@@ -79,8 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Configuration settings
     const isInstant = appEl.getAttribute('data-instant') === '1';
-    const ajaxUrl = appEl.getAttribute('data-ajax-url') || '';
-    const idCategory = parseInt(appEl.getAttribute('data-id-category')) || 0;
 
     // Show/hide Apply Button based on configuration
     if (btnApplyFilters) {
@@ -100,7 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Dynamic state trackers
     let filterStates = {};
-    let isCategoryLiveFilter = false;
     let mappedThemeCards = [];
     let isParsingUrl = false;
     let isInitializing = true;
@@ -169,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (Array.isArray(parsed)) {
                             return parsed.map(v => String(v).trim());
                         }
-                    } catch (e) {}
+                    } catch {}
                 }
                 return [strVal];
             }
@@ -386,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Strip language slug if present (e.g. /pl/ or /en/ or /de/)
             path = path.replace(/^\/[a-z]{2}\//i, '/');
             return path;
-        } catch(e) {
+        } catch {
             return urlStr;
         }
     }
@@ -507,7 +504,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("LabelConfigurator: Found card elements on page:", foundCards.length);
 
         if (foundCards.length === 0) {
-            isCategoryLiveFilter = false;
             return;
         }
 
@@ -528,8 +524,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("LabelConfigurator: Successfully mapped theme cards:", mappedThemeCards.length);
 
         if (mappedThemeCards.length > 0) {
-            isCategoryLiveFilter = true;
-
             // ADAPT SIDEBAR LAYOUT TO NATIVE LEFT COLUMN
             // Prevents overflow / squishing issues
             const app = document.getElementById('configurator-app');
@@ -1324,10 +1318,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Redirect Filtering Strategy building native URL parameters (PrestaShop Faceted Search structure)
     function applyFiltersByRedirect() {
         const queryParts = [];
-
-        // Parse already active query parameter q to preserve other active filters if desired
-        const urlParams = new URLSearchParams(window.location.search);
-        let existingQ = urlParams.get('q') || '';
 
         for (const [fid, state] of Object.entries(filterStates)) {
             // Find filter configuration original name
