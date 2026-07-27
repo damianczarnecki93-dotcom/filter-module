@@ -452,20 +452,24 @@
         .config-sidebar {
             position: fixed;
             top: 0;
-            left: -350px;
+            left: 0;
             width: 310px;
             height: 100%;
             z-index: 9999;
             overflow-y: auto;
-            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(-105%);
+            visibility: hidden;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
             box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15);
             border-radius: 0 12px 12px 0;
             border: none;
             padding: 20px 15px;
+            background: #ffffff;
         }
 
         .config-sidebar.open {
-            left: 0;
+            transform: translateX(0);
+            visibility: visible;
         }
 
         .close-sidebar-btn {
